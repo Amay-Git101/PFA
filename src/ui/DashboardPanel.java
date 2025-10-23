@@ -1,0 +1,288 @@
+package ui;
+
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import database.TransactionDAO;
+import events.TransactionListener;
+import events.TransactionEventManager;
+import models.Transaction;
+import backend.BudgetLogic;
+import java.util.List;
+
+public class DashboardPanel extends JPanel implements TransactionListener {
+    private TransactionDAO transactionDAO;
+    private BudgetLogic budgetLogic;
+    private JLabel balanceLabel;
+    private JLabel incomeLabel;
+    private JLabel expenseLabel;
+    private JLabel healthLabel;
+    private DefaultTableModel tableModel;
+    
+    // Theme colors from Main
+    private static final Color BACKGROUND_COLOR = new Color(30, 30, 30);
+    private static final Color PANEL_COLOR = new Color(42, 42, 42);
+    private static final Color ACCENT_COLOR = new Color(0, 200, 151);
+    private static final Color TEXT_COLOR = Color.WHITE;
+    private static final Color BORDER_COLOR = new Color(60, 60, 60);
+    
+    public DashboardPanel() {
+        transactionDAO = new TransactionDAO();
+        budgetLogic = new BudgetLogic();
+        
+        setBackground(BACKGROUND_COLOR);
+        setLayout(new BorderLayout(10, 10));
+        setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        
+        initComponents();
+        loadData();
+        
+        // Subscribe to transaction events
+        TransactionEventManager.getInstance().subscribe(this);
+    }
+    
+    private void initComponents() {
+        // Header
+        JLabel headerLabel = new JLabel("📊 Dashboard");
+        headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        headerLabel.setForeground(TEXT_COLOR);
+        headerLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
+        add(headerLabel, BorderLayout.NORTH);
+        
+        // Create main content panel
+        JPanel contentPanel = new JPanel(new GridBagLayout());
+        contentPanel.setBackground(BACKGROUND_COLOR);
+        GridBagConstraints gbc = new GridBagConstraints();
+        
+        // Summary cards panel
+        JPanel summaryPanel = createSummaryPanel();
+        gbc.gridx = 0; gbc.gridy = 0;
+        gbc.gridwidth = 2;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.weightx = 1.0;
+        gbc.insets = new Insets(0, 0, 20, 0);
+        contentPanel.add(summaryPanel, gbc);
+        
+        // Recent transactions panel
+        JPanel recentPanel = createRecentTransactionsPanel();
+        gbc.gridx = 0; gbc.gridy = 1;
+        gbc.gridwidth = 2;
+        gbc.fill = GridBagConstraints.BOTH;
+        gbc.weightx = 1.0;
+        gbc.weighty = 1.0;
+        gbc.insets = new Insets(0, 0, 0, 0);
+        contentPanel.add(recentPanel, gbc);
+        
+        add(contentPanel, BorderLayout.CENTER);
+        
+        // Refresh button
+        JButton refreshButton = createStyledButton("🔄 Refresh");
+        refreshButton.addActionListener(e -> loadData());
+        
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttonPanel.setBackground(BACKGROUND_COLOR);
+        buttonPanel.add(refreshButton);
+        add(buttonPanel, BorderLayout.SOUTH);
+    }
+    
+    private JPanel createSummaryPanel() {
+        JPanel summaryPanel = new JPanel(new GridLayout(1, 4, 20, 0));
+        summaryPanel.setBackground(BACKGROUND_COLOR);
+        summaryPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        // Balance card
+        JPanel balanceCard = createSummaryCard("💰 Current Balance", "$0.00", ACCENT_COLOR);
+        balanceLabel = findValueLabel(balanceCard);
+        summaryPanel.add(balanceCard);
+        
+        // Income card
+        JPanel incomeCard = createSummaryCard("📈 Total Income", "$0.00", new Color(46, 160, 67));
+        incomeLabel = findValueLabel(incomeCard);
+        summaryPanel.add(incomeCard);
+        
+        // Expense card
+        JPanel expenseCard = createSummaryCard("📉 Total Expenses", "$0.00", new Color(220, 53, 69));
+        expenseLabel = findValueLabel(expenseCard);
+        summaryPanel.add(expenseCard);
+        
+        // Financial Health card
+        JPanel healthCard = createSummaryCard("🏥 Financial Health", "Good", new Color(255, 193, 7));
+        healthLabel = findValueLabel(healthCard);
+        summaryPanel.add(healthCard);
+        
+        return summaryPanel;
+    }
+    
+    private JPanel createSummaryCard(String title, String value, Color accentColor) {
+        JPanel card = new JPanel();
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setBackground(PANEL_COLOR);
+        card.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(BORDER_COLOR, 1, true),
+            BorderFactory.createEmptyBorder(15, 15, 15, 15)
+        ));
+        
+        JLabel titleLabel = new JLabel(title);
+        titleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        titleLabel.setForeground(TEXT_COLOR.brighter());
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        JLabel valueLabel = new JLabel(value);
+        valueLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        valueLabel.setForeground(accentColor);
+        valueLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        valueLabel.setName("valueLabel"); // Name it for easy identification
+        
+        card.add(titleLabel);
+        card.add(Box.createVerticalStrut(8));
+        card.add(valueLabel);
+        
+        return card;
+    }
+    
+    private JLabel findValueLabel(JPanel card) {
+        for (Component comp : card.getComponents()) {
+            if (comp instanceof JLabel && "valueLabel".equals(comp.getName())) {
+                return (JLabel) comp;
+            }
+        }
+        return null;
+    }
+    
+    private JPanel createRecentTransactionsPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(BACKGROUND_COLOR);
+        panel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(BORDER_COLOR, 1, true),
+            BorderFactory.createEmptyBorder(15, 15, 15, 15)
+        ));
+        
+        JLabel titleLabel = new JLabel("📋 Recent Transactions");
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        titleLabel.setForeground(TEXT_COLOR);
+        titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
+        panel.add(titleLabel, BorderLayout.NORTH);
+        
+        // Create table
+        String[] columnNames = {"Date", "Type", "Category", "Amount", "Notes"};
+        tableModel = new DefaultTableModel(columnNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        
+        JTable table = new JTable(tableModel);
+        table.setBackground(PANEL_COLOR);
+        table.setForeground(TEXT_COLOR);
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        table.setRowHeight(25);
+        table.setShowGrid(true);
+        table.setGridColor(BORDER_COLOR);
+        table.getTableHeader().setBackground(BACKGROUND_COLOR);
+        table.getTableHeader().setForeground(TEXT_COLOR);
+        table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
+        
+        // Set column widths
+        table.getColumnModel().getColumn(0).setPreferredWidth(80);
+        table.getColumnModel().getColumn(1).setPreferredWidth(60);
+        table.getColumnModel().getColumn(2).setPreferredWidth(100);
+        table.getColumnModel().getColumn(3).setPreferredWidth(80);
+        table.getColumnModel().getColumn(4).setPreferredWidth(200);
+        
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setBackground(PANEL_COLOR);
+        scrollPane.getViewport().setBackground(PANEL_COLOR);
+        scrollPane.setBorder(BorderFactory.createLineBorder(BORDER_COLOR));
+        
+        panel.add(scrollPane, BorderLayout.CENTER);
+        
+        return panel;
+    }
+    
+    private JButton createStyledButton(String text) {
+        JButton button = new JButton(text);
+        button.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        button.setForeground(TEXT_COLOR);
+        button.setBackground(ACCENT_COLOR);
+        button.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+        button.setFocusPainted(false);
+        
+        // Add hover effect
+        button.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                button.setBackground(ACCENT_COLOR.brighter());
+            }
+            
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                button.setBackground(ACCENT_COLOR);
+            }
+        });
+        
+        return button;
+    }
+    
+    private void loadData() {
+        // Update summary cards
+        double balance = transactionDAO.getBalance();
+        double income = transactionDAO.getTotalIncome();
+        double expenses = transactionDAO.getTotalExpenses();
+        String health = budgetLogic.getFinancialHealth();
+        
+        balanceLabel.setText(String.format("$%.2f", balance));
+        incomeLabel.setText(String.format("$%.2f", income));
+        expenseLabel.setText(String.format("$%.2f", expenses));
+        healthLabel.setText(health);
+        
+        // Update balance color based on value
+        if (balance >= 0) {
+            balanceLabel.setForeground(ACCENT_COLOR);
+        } else {
+            balanceLabel.setForeground(new Color(220, 53, 69));
+        }
+        
+        // Load recent transactions
+        List<Transaction> recentTransactions = transactionDAO.getRecentTransactions(5);
+        tableModel.setRowCount(0);
+        
+        for (Transaction transaction : recentTransactions) {
+            Object[] row = {
+                transaction.getDate(),
+                transaction.getType(),
+                transaction.getCategory(),
+                String.format("$%.2f", transaction.getAmount()),
+                transaction.getNotes()
+            };
+            tableModel.addRow(row);
+        }
+    }
+    
+    // Implementation of TransactionListener interface
+    @Override
+    public void onTransactionAdded(Transaction transaction) {
+        // Refresh dashboard when a transaction is added
+        SwingUtilities.invokeLater(this::loadData);
+    }
+    
+    @Override
+    public void onTransactionDeleted(int transactionId) {
+        // Refresh dashboard when a transaction is deleted
+        SwingUtilities.invokeLater(this::loadData);
+    }
+    
+    @Override
+    public void onTransactionUpdated(Transaction transaction) {
+        // Refresh dashboard when a transaction is updated
+        SwingUtilities.invokeLater(this::loadData);
+    }
+    
+    @Override
+    public void onTransactionsRefreshed() {
+        // Refresh dashboard
+        SwingUtilities.invokeLater(this::loadData);
+    }
+}
