@@ -1,7 +1,9 @@
 package ui;
 
 import database.InvestmentDAO;
+import database.TransactionDAO;
 import models.Investment;
+import models.Transaction;
 import events.TransactionEventManager;
 import events.TransactionListener;
 
@@ -12,13 +14,15 @@ import java.awt.event.ItemEvent;
 import java.text.SimpleDateFormat;
 import java.util.List;
 
-public class InvestmentPanel extends JPanel implements TransactionListener {
+public class InvestmentPanel extends JPanel implements TransactionListener, Refreshable {
     private InvestmentDAO investmentDAO;
+    private TransactionDAO transactionDAO;
     private JTable investmentTable;
     private DefaultTableModel tableModel;
     private JComboBox<String> frequencyCombo;
     private JLabel paymentDayLabel;
     private JSpinner paymentDaySpinner;
+    private Main mainFrame;
     
     // Theme colors
     private static final Color BACKGROUND_COLOR = new Color(30, 30, 30);
@@ -28,8 +32,10 @@ public class InvestmentPanel extends JPanel implements TransactionListener {
     private static final Color BORDER_COLOR = new Color(60, 60, 60);
     private static final Color ERROR_COLOR = new Color(220, 53, 69);
     
-    public InvestmentPanel() {
+    public InvestmentPanel(Main mainFrame) {
+        this.mainFrame = mainFrame;
         investmentDAO = new InvestmentDAO();
+        transactionDAO = new TransactionDAO();
         setLayout(new BorderLayout());
         setBackground(BACKGROUND_COLOR);
         
@@ -212,14 +218,34 @@ public class InvestmentPanel extends JPanel implements TransactionListener {
                 
                 Investment investment = new Investment(name, category, amount, startDate, frequency, paymentDay);
                 if (investmentDAO.addInvestment(investment)) {
-                    JOptionPane.showMessageDialog(this, "Investment added successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
-                    nameField.setText("");
-                    amountField.setText("");
-                    startDateField.setText("");
-                    categoryCombo.setSelectedIndex(0);
-                    frequencyCombo.setSelectedIndex(0);
-                    paymentDaySpinner.setValue(5);
-                    reloadTableData();
+                    // Create a corresponding transaction entry for the investment
+                    String transactionCategory = "Investment-" + category;
+                    Transaction investmentTransaction = new Transaction(
+                        "Expense",
+                        transactionCategory,
+                        amount,
+                        startDate,
+                        name,
+                        "investment"
+                    );
+                    
+                    boolean transactionAdded = transactionDAO.addTransaction(investmentTransaction);
+                    
+                    if (transactionAdded) {
+                        JOptionPane.showMessageDialog(this, "Investment added successfully!\nTransaction logged: " + transactionCategory, "Success", JOptionPane.INFORMATION_MESSAGE);
+                        nameField.setText("");
+                        amountField.setText("");
+                        startDateField.setText("");
+                        categoryCombo.setSelectedIndex(0);
+                        frequencyCombo.setSelectedIndex(0);
+                        paymentDaySpinner.setValue(5);
+                        reloadTableData();
+                        // Refresh all panels to show the new transaction
+                        mainFrame.refreshAllPanels();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Investment saved but failed to create transaction record.", "Warning", JOptionPane.WARNING_MESSAGE);
+                        reloadTableData();
+                    }
                 } else {
                     JOptionPane.showMessageDialog(this, "Failed to add investment.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
@@ -341,6 +367,11 @@ public class InvestmentPanel extends JPanel implements TransactionListener {
     
     @Override
     public void onTransactionsRefreshed() {
+        reloadTableData();
+    }
+    
+    @Override
+    public void refreshData() {
         reloadTableData();
     }
 }

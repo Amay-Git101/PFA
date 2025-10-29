@@ -4,10 +4,11 @@ import javax.swing.*;
 import java.awt.*;
 import backend.BudgetLogic;
 
-public class AiPanel extends JPanel {
+public class AiPanel extends JPanel implements Refreshable {
     private BudgetLogic budgetLogic;
     private JTextArea questionArea;
     private JTextArea responseArea;
+    private Main mainFrame;
     
     // Theme colors
     private static final Color BACKGROUND_COLOR = new Color(30, 30, 30);
@@ -16,7 +17,8 @@ public class AiPanel extends JPanel {
     private static final Color TEXT_COLOR = Color.WHITE;
     private static final Color BORDER_COLOR = new Color(60, 60, 60);
     
-    public AiPanel() {
+    public AiPanel(Main mainFrame) {
+        this.mainFrame = mainFrame;
         budgetLogic = new BudgetLogic();
         
         setBackground(BACKGROUND_COLOR);
@@ -253,5 +255,10 @@ public class AiPanel extends JPanel {
             """;
         
         responseArea.setText(initialResponse);
+    }
+    
+    @Override
+    public void refreshData() {
+        showPersonalizedRecommendations();
     }
 }

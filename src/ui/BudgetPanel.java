@@ -11,11 +11,12 @@ import backend.BudgetLogic;
 import java.util.List;
 import java.util.Map;
 
-public class BudgetPanel extends JPanel {
+public class BudgetPanel extends JPanel implements Refreshable {
     private TransactionDAO transactionDAO;
     private CategoryDAO categoryDAO;
     private CategoryBudgetDAO categoryBudgetDAO;
     private BudgetLogic budgetLogic;
+    private Main mainFrame;
     private JTextField incomeField;
     private JTextField limitField;
     private JProgressBar budgetProgressBar;
@@ -32,7 +33,8 @@ public class BudgetPanel extends JPanel {
     private static final Color TEXT_COLOR = Color.WHITE;
     private static final Color BORDER_COLOR = new Color(60, 60, 60);
     
-    public BudgetPanel() {
+    public BudgetPanel(Main mainFrame) {
+        this.mainFrame = mainFrame;
         transactionDAO = new TransactionDAO();
         categoryDAO = new CategoryDAO();
         categoryBudgetDAO = new CategoryBudgetDAO();
@@ -493,5 +495,11 @@ public class BudgetPanel extends JPanel {
             JOptionPane.showMessageDialog(this, "Please enter valid budget amounts.", 
                 "Invalid Input", JOptionPane.WARNING_MESSAGE);
         }
+    }
+    
+    @Override
+    public void refreshData() {
+        loadBudgetData();
+        loadCategoryBudgets();
     }
 }

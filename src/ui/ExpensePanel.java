@@ -13,7 +13,7 @@ import events.TransactionEventManager;
 import models.Transaction;
 import java.util.List;
 
-public class ExpensePanel extends JPanel implements TransactionListener {
+public class ExpensePanel extends JPanel implements TransactionListener, Refreshable {
     private TransactionDAO transactionDAO;
     private CategoryDAO categoryDAO;
     private DefaultTableModel tableModel;
@@ -23,6 +23,7 @@ public class ExpensePanel extends JPanel implements TransactionListener {
     private JTextField amountField;
     private JTextField dateField;
     private JTextArea notesArea;
+    private Main mainFrame;
     
     // Theme colors
     private static final Color BACKGROUND_COLOR = new Color(30, 30, 30);
@@ -31,7 +32,8 @@ public class ExpensePanel extends JPanel implements TransactionListener {
     private static final Color TEXT_COLOR = Color.WHITE;
     private static final Color BORDER_COLOR = new Color(60, 60, 60);
     
-    public ExpensePanel() {
+    public ExpensePanel(Main mainFrame) {
+        this.mainFrame = mainFrame;
         transactionDAO = new TransactionDAO();
         categoryDAO = new CategoryDAO();
         
@@ -201,7 +203,7 @@ public class ExpensePanel extends JPanel implements TransactionListener {
         JPanel titlePanel = new JPanel(new BorderLayout());
         titlePanel.setBackground(BACKGROUND_COLOR);
         
-        JLabel tableTitle = new JLabel("📋 All Transactions");
+        JLabel tableTitle = new JLabel("📋 Manual Transactions");
         tableTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
         tableTitle.setForeground(TEXT_COLOR);
         titlePanel.add(tableTitle, BorderLayout.WEST);
@@ -363,7 +365,7 @@ public class ExpensePanel extends JPanel implements TransactionListener {
             String category = (String) categoryComboBox.getSelectedItem();
             String notes = notesArea.getText();
             
-            Transaction transaction = new Transaction(type, category, amount, date, notes);
+            Transaction transaction = new Transaction(type, category, amount, date, notes, "manual");
             
             if (transactionDAO.addTransaction(transaction)) {
                 JOptionPane.showMessageDialog(this, "Transaction added successfully!", 
@@ -419,7 +421,7 @@ public class ExpensePanel extends JPanel implements TransactionListener {
     }
     
     private void loadTransactions() {
-        List<Transaction> transactions = transactionDAO.getAllTransactions();
+        List<Transaction> transactions = transactionDAO.getAllManualTransactions();
         tableModel.setRowCount(0);
         
         for (Transaction transaction : transactions) {
@@ -458,5 +460,10 @@ public class ExpensePanel extends JPanel implements TransactionListener {
     public void onTransactionsRefreshed() {
         // Refresh the table
         SwingUtilities.invokeLater(this::loadTransactions);
+    }
+    
+    @Override
+    public void refreshData() {
+        loadTransactions();
     }
 }

@@ -22,7 +22,7 @@ public class DataExportImport {
             FileWriter csvWriter = new FileWriter(filePath);
             
             // Write header
-            csvWriter.append("ID,Type,Category,Amount,Date,Notes\n");
+            csvWriter.append("ID,Type,Category,Amount,Date,Notes,Source\n");
             
             // Write data
             for (Transaction t : transactions) {
@@ -31,7 +31,8 @@ public class DataExportImport {
                 csvWriter.append("\"").append(t.getCategory()).append("\",");
                 csvWriter.append(String.valueOf(t.getAmount())).append(",");
                 csvWriter.append("\"").append(t.getDate()).append("\",");
-                csvWriter.append("\"").append(escapeCSV(t.getNotes())).append("\"\n");
+                csvWriter.append("\"").append(escapeCSV(t.getNotes())).append("\",");
+                csvWriter.append("\"").append(t.getSource()).append("\"\n");
             }
             
             csvWriter.flush();
@@ -70,8 +71,9 @@ public class DataExportImport {
                         double amount = Double.parseDouble(values[3]);
                         String date = values[4];
                         String notes = values.length > 5 ? values[5] : "";
+                        String source = values.length > 6 ? values[6] : "manual";
                         
-                        Transaction transaction = new Transaction(type, category, amount, date, notes);
+                        Transaction transaction = new Transaction(type, category, amount, date, notes, source);
                         
                         if (!transactionDAO.addTransaction(transaction)) {
                             System.err.println("Failed to import transaction at line " + lineNumber);

@@ -12,7 +12,7 @@ import models.Transaction;
 import backend.BudgetLogic;
 import java.util.List;
 
-public class DashboardPanel extends JPanel implements TransactionListener {
+public class DashboardPanel extends JPanel implements TransactionListener, Refreshable {
     private TransactionDAO transactionDAO;
     private BudgetLogic budgetLogic;
     private JLabel balanceLabel;
@@ -20,6 +20,9 @@ public class DashboardPanel extends JPanel implements TransactionListener {
     private JLabel expenseLabel;
     private JLabel healthLabel;
     private DefaultTableModel tableModel;
+    private JComboBox<String> durationFilterCombo;
+    private JLabel transactionsTitleLabel;
+    private Main mainFrame;
     
     // Theme colors from Main
     private static final Color BACKGROUND_COLOR = new Color(30, 30, 30);
@@ -28,7 +31,8 @@ public class DashboardPanel extends JPanel implements TransactionListener {
     private static final Color TEXT_COLOR = Color.WHITE;
     private static final Color BORDER_COLOR = new Color(60, 60, 60);
     
-    public DashboardPanel() {
+    public DashboardPanel(Main mainFrame) {
+        this.mainFrame = mainFrame;
         transactionDAO = new TransactionDAO();
         budgetLogic = new BudgetLogic();
         
@@ -77,14 +81,32 @@ public class DashboardPanel extends JPanel implements TransactionListener {
         
         add(contentPanel, BorderLayout.CENTER);
         
+        // Bottom panel with duration filter and refresh button
+        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
+        bottomPanel.setBackground(BACKGROUND_COLOR);
+        
+        // Duration filter
+        JLabel filterLabel = new JLabel("Duration:");
+        filterLabel.setForeground(TEXT_COLOR);
+        bottomPanel.add(filterLabel);
+        
+        String[] durations = {"This Month", "Last 3 Months", "This Year", "All Time"};
+        durationFilterCombo = new JComboBox<>(durations);
+        durationFilterCombo.setBackground(PANEL_COLOR);
+        durationFilterCombo.setForeground(TEXT_COLOR);
+        durationFilterCombo.addActionListener(e -> {
+            String selectedDuration = (String) durationFilterCombo.getSelectedItem();
+            transactionsTitleLabel.setText("📋 Transactions (" + selectedDuration + ")");
+            loadTransactionsTable();
+        });
+        bottomPanel.add(durationFilterCombo);
+        
         // Refresh button
         JButton refreshButton = createStyledButton("🔄 Refresh");
         refreshButton.addActionListener(e -> loadData());
+        bottomPanel.add(refreshButton);
         
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        buttonPanel.setBackground(BACKGROUND_COLOR);
-        buttonPanel.add(refreshButton);
-        add(buttonPanel, BorderLayout.SOUTH);
+        add(bottomPanel, BorderLayout.SOUTH);
     }
     
     private JPanel createSummaryPanel() {
@@ -159,11 +181,11 @@ public class DashboardPanel extends JPanel implements TransactionListener {
             BorderFactory.createEmptyBorder(15, 15, 15, 15)
         ));
         
-        JLabel titleLabel = new JLabel("📋 Recent Transactions");
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        titleLabel.setForeground(TEXT_COLOR);
-        titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
-        panel.add(titleLabel, BorderLayout.NORTH);
+        transactionsTitleLabel = new JLabel("📋 Transactions (This Month)");
+        transactionsTitleLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        transactionsTitleLabel.setForeground(TEXT_COLOR);
+        transactionsTitleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 15, 0));
+        panel.add(transactionsTitleLabel, BorderLayout.NORTH);
         
         // Create table
         String[] columnNames = {"Date", "Type", "Category", "Amount", "Notes"};
@@ -245,11 +267,16 @@ public class DashboardPanel extends JPanel implements TransactionListener {
             balanceLabel.setForeground(new Color(220, 53, 69));
         }
         
-        // Load recent transactions
-        List<Transaction> recentTransactions = transactionDAO.getRecentTransactions(5);
+        // Load transactions table
+        loadTransactionsTable();
+    }
+    
+    private void loadTransactionsTable() {
+        String selectedDuration = (String) durationFilterCombo.getSelectedItem();
+        List<Transaction> transactions = transactionDAO.getTransactionsByDuration(selectedDuration);
         tableModel.setRowCount(0);
         
-        for (Transaction transaction : recentTransactions) {
+        for (Transaction transaction : transactions) {
             Object[] row = {
                 transaction.getDate(),
                 transaction.getType(),
@@ -284,5 +311,10 @@ public class DashboardPanel extends JPanel implements TransactionListener {
     public void onTransactionsRefreshed() {
         // Refresh dashboard
         SwingUtilities.invokeLater(this::loadData);
+    }
+    
+    @Override
+    public void refreshData() {
+        loadData();
     }
 }

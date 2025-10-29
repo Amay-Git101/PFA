@@ -28,7 +28,8 @@ public class TransactionDAO {
                         rs.getString("category"),
                         rs.getDouble("amount"),
                         rs.getString("date"),
-                        rs.getString("notes")
+                        rs.getString("notes"),
+                        rs.getString("source")
                     );
                     transactions.add(transaction);
                 }
@@ -62,7 +63,8 @@ public class TransactionDAO {
                         rs.getString("category"),
                         rs.getDouble("amount"),
                         rs.getString("date"),
-                        rs.getString("notes")
+                        rs.getString("notes"),
+                        rs.getString("source")
                     );
                     transactions.add(transaction);
                 }
@@ -75,7 +77,7 @@ public class TransactionDAO {
     }
     
     public boolean addTransaction(Transaction transaction) {
-        String sql = "INSERT INTO transactions (type, category, amount, date, notes) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO transactions (type, category, amount, date, notes, source) VALUES (?, ?, ?, ?, ?, ?)";
         
         Connection conn = DBConnection.getConnection();
         if (conn == null) {
@@ -89,6 +91,7 @@ public class TransactionDAO {
             pstmt.setDouble(3, transaction.getAmount());
             pstmt.setString(4, transaction.getDate());
             pstmt.setString(5, transaction.getNotes());
+            pstmt.setString(6, transaction.getSource());
             
             int result = pstmt.executeUpdate();
             if (result > 0) {
@@ -167,6 +170,93 @@ public class TransactionDAO {
     
     public double getBalance() {
         return getTotalIncome() - getTotalExpenses();
+    }
+    
+    public List<Transaction> getAllManualTransactions() {
+        List<Transaction> transactions = new ArrayList<>();
+        String sql = "SELECT * FROM transactions WHERE source = 'manual' ORDER BY date DESC";
+        
+        try {
+            Connection conn = DBConnection.getConnection();
+            if (conn == null) {
+                System.err.println("Database connection failed");
+                return transactions;
+            }
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery(sql)) {
+            
+                while (rs.next()) {
+                    Transaction transaction = new Transaction(
+                        rs.getInt("id"),
+                        rs.getString("type"),
+                        rs.getString("category"),
+                        rs.getDouble("amount"),
+                        rs.getString("date"),
+                        rs.getString("notes"),
+                        rs.getString("source")
+                    );
+                    transactions.add(transaction);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error retrieving manual transactions: " + e.getMessage());
+        }
+        
+        return transactions;
+    }
+    
+    public List<Transaction> getTransactionsForCurrentMonth() {
+        return getTransactionsByDuration("This Month");
+    }
+    
+    public List<Transaction> getTransactionsByDuration(String duration) {
+        List<Transaction> transactions = new ArrayList<>();
+        String sql;
+        
+        switch(duration) {
+            case "This Month":
+                sql = "SELECT * FROM transactions WHERE strftime('%Y-%m', date) = strftime('%Y-%m', 'now') ORDER BY date DESC";
+                break;
+            case "Last 3 Months":
+                sql = "SELECT * FROM transactions WHERE date BETWEEN strftime('%Y-%m-%d', 'now', '-3 months') AND strftime('%Y-%m-%d', 'now') ORDER BY date DESC";
+                break;
+            case "This Year":
+                sql = "SELECT * FROM transactions WHERE strftime('%Y', date) = strftime('%Y', 'now') ORDER BY date DESC";
+                break;
+            case "All Time":
+                sql = "SELECT * FROM transactions ORDER BY date DESC";
+                break;
+            default:
+                sql = "SELECT * FROM transactions WHERE strftime('%Y-%m', date) = strftime('%Y-%m', 'now') ORDER BY date DESC";
+        }
+        
+        try {
+            Connection conn = DBConnection.getConnection();
+            if (conn == null) {
+                System.err.println("Database connection failed");
+                return transactions;
+            }
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery(sql)) {
+            
+                while (rs.next()) {
+                    Transaction transaction = new Transaction(
+                        rs.getInt("id"),
+                        rs.getString("type"),
+                        rs.getString("category"),
+                        rs.getDouble("amount"),
+                        rs.getString("date"),
+                        rs.getString("notes"),
+                        rs.getString("source")
+                    );
+                    transactions.add(transaction);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error retrieving transactions by duration (" + duration + "): " + e.getMessage());
+        }
+        
+        return transactions;
     }
     
     public double[] getBudgetInfo() {

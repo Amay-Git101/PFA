@@ -45,7 +45,8 @@ public class InvestmentDAO {
                     "Investment-SIP",
                     investment.getAmount(),
                     investment.getStartDate(),
-                    investment.getName()
+                    investment.getName(),
+                    "investment"
                 );
                 transactionDAO.addTransaction(sipExpense);
             }

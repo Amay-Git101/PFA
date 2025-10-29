@@ -1,13 +1,20 @@
+package ui;
+
 import javax.swing.*;
 import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.awt.event.ActionListener;
-import ui.*;
 
 public class Main extends JFrame {
     private CardLayout cardLayout;
     private JPanel mainContentPanel;
     private JButton selectedButton;
+    private DashboardPanel dashboardPanel;
+    private ExpensePanel expensePanel;
+    private BudgetPanel budgetPanel;
+    private AiPanel aiPanel;
+    private InvestmentPanel investmentPanel;
+    private java.util.List<Refreshable> refreshablePanels;
     
     // Theme colors
     public static final Color BACKGROUND_COLOR = new Color(30, 30, 30);      // #1E1E1E
@@ -26,6 +33,9 @@ public class Main extends JFrame {
         // Set dark theme
         setupDarkTheme();
         
+        // Initialize refresh list
+        refreshablePanels = new java.util.ArrayList<>();
+        
         // Initialize layout
         setLayout(new BorderLayout());
         getContentPane().setBackground(BACKGROUND_COLOR);
@@ -39,19 +49,38 @@ public class Main extends JFrame {
         mainContentPanel = new JPanel(cardLayout);
         mainContentPanel.setBackground(BACKGROUND_COLOR);
         
-        // Add panels
-        mainContentPanel.add(new DashboardPanel(), "Dashboard");
-        mainContentPanel.add(new AiPanel(), "AI Advisor");
-        mainContentPanel.add(new InvestmentPanel(), "Investment Management");
-        mainContentPanel.add(new ExpensePanel(), "Expenses");
-        mainContentPanel.add(new BudgetPanel(), "Budget");
+        // Add panels with references for refreshing
+        dashboardPanel = new DashboardPanel(this);
+        aiPanel = new AiPanel(this);
+        investmentPanel = new InvestmentPanel(this);
+        expensePanel = new ExpensePanel(this);
+        budgetPanel = new BudgetPanel(this);
+        
+        mainContentPanel.add(dashboardPanel, "Dashboard");
+        mainContentPanel.add(aiPanel, "AI Advisor");
+        mainContentPanel.add(investmentPanel, "Investment Management");
+        mainContentPanel.add(expensePanel, "Expenses");
+        mainContentPanel.add(budgetPanel, "Budget");
         mainContentPanel.add(new ReportsPanel(), "Reports");
         mainContentPanel.add(new SettingsPanel(), "Settings");
+        
+        // Register refreshable panels
+        refreshablePanels.add(dashboardPanel);
+        refreshablePanels.add(expensePanel);
+        refreshablePanels.add(budgetPanel);
+        refreshablePanels.add(aiPanel);
+        refreshablePanels.add(investmentPanel);
         
         add(mainContentPanel, BorderLayout.CENTER);
         
         // Show dashboard by default
         cardLayout.show(mainContentPanel, "Dashboard");
+    }
+    
+    public void refreshAllPanels() {
+        for (Refreshable panel : refreshablePanels) {
+            panel.refreshData();
+        }
     }
     
     private void setupDarkTheme() {

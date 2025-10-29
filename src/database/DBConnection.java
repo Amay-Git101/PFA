@@ -39,7 +39,8 @@ public class DBConnection {
                     category TEXT NOT NULL,
                     amount REAL NOT NULL,
                     date TEXT NOT NULL,
-                    notes TEXT
+                    notes TEXT,
+                    source TEXT NOT NULL DEFAULT 'manual'
                 )
                 """;
             stmt.execute(createTransactionsTable);
@@ -102,11 +103,32 @@ public class DBConnection {
                 """;
             stmt.execute(createSettingsTable);
             
+            // Run migrations
+            runMigrations();
+            
             // Insert sample data if tables are empty
             insertSampleData();
             
         } catch (SQLException e) {
             System.err.println("Error creating tables: " + e.getMessage());
+        }
+    }
+    
+    private static void runMigrations() {
+        try (Statement stmt = connection.createStatement()) {
+            // Check if source column exists in transactions table
+            try {
+                stmt.executeQuery("SELECT source FROM transactions LIMIT 1");
+            } catch (SQLException e) {
+                // Column doesn't exist, add it
+                if (e.getMessage().contains("no such column")) {
+                    System.out.println("Migrating database: Adding source column to transactions table...");
+                    stmt.execute("ALTER TABLE transactions ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'");
+                    System.out.println("Migration complete: source column added successfully.");
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error running migrations: " + e.getMessage());
         }
     }
     
@@ -143,10 +165,10 @@ public class DBConnection {
                 String[] incomeCategories = {"Salary", "Freelance", "Investment", "Bonus", "Other"};
                 
                 for (String cat : expenseCategories) {
-                    stmt.execute("INSERT INTO categories (name, type, color) VALUES ('" + cat + "', 'Expense', '#00C897')");
+                    stmt.execute("INSERT OR IGNORE INTO categories (name, type, color) VALUES ('" + cat + "', 'Expense', '#00C897')");
                 }
                 for (String cat : incomeCategories) {
-                    stmt.execute("INSERT INTO categories (name, type, color) VALUES ('" + cat + "', 'Income', '#00C897')");
+                    stmt.execute("INSERT OR IGNORE INTO categories (name, type, color) VALUES ('" + cat + "', 'Income', '#00C897')");
                 }
             }
             
