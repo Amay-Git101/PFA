@@ -13,15 +13,24 @@ import java.awt.*;
 import java.awt.event.ItemEvent;
 import java.text.SimpleDateFormat;
 import java.util.List;
+import java.util.Date;
+import java.util.Calendar;
 
 public class InvestmentPanel extends JPanel implements TransactionListener, Refreshable {
     private InvestmentDAO investmentDAO;
     private TransactionDAO transactionDAO;
     private JTable investmentTable;
     private DefaultTableModel tableModel;
+    private JLabel frequencyLabel;
     private JComboBox<String> frequencyCombo;
     private JLabel paymentDayLabel;
     private JSpinner paymentDaySpinner;
+    private JLabel maturityDateLabel;
+    private JTextField maturityDateField;
+    private JLabel interestRateLabel;
+    private JTextField interestRateField;
+    private JLabel actionLabel;
+    private JComboBox<String> actionCombo;
     private Main mainFrame;
     
     // Theme colors
@@ -130,6 +139,32 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
         gbc.gridx = 1;
         formPanel.add(categoryCombo, gbc);
         
+        // Add listener for dynamic field visibility
+        categoryCombo.addItemListener(e -> {
+            if (e.getStateChange() == ItemEvent.SELECTED) {
+                String selected = (String) categoryCombo.getSelectedItem();
+                boolean isSIP = "SIP".equals(selected);
+                boolean isFD = "Fixed Deposit (FD)".equals(selected);
+                boolean isTradeableAsset = "Stocks".equals(selected) || "Gold".equals(selected) || "Real Estate".equals(selected);
+                
+                frequencyLabel.setVisible(isSIP);
+                frequencyCombo.setVisible(isSIP);
+                paymentDayLabel.setVisible(isSIP);
+                paymentDaySpinner.setVisible(isSIP);
+                
+                maturityDateLabel.setVisible(isFD);
+                maturityDateField.setVisible(isFD);
+                interestRateLabel.setVisible(isFD);
+                interestRateField.setVisible(isFD);
+                
+                actionLabel.setVisible(isTradeableAsset);
+                actionCombo.setVisible(isTradeableAsset);
+                
+                formPanel.revalidate();
+                formPanel.repaint();
+            }
+        });
+        
         // Start Date
         JLabel startDateLabel = createLabel("Start Date (YYYY-MM-DD):");
         gbc.gridx = 2;
@@ -142,7 +177,7 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
         formPanel.add(startDateField, gbc);
         
         // Frequency
-        JLabel frequencyLabel = createLabel("Frequency:");
+        frequencyLabel = createLabel("Frequency:");
         gbc.gridx = 0;
         gbc.gridy = 2;
         formPanel.add(frequencyLabel, gbc);
@@ -175,6 +210,45 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
         gbc.gridx = 3;
         formPanel.add(paymentDaySpinner, gbc);
         
+        // Maturity Date (for FD)
+        maturityDateLabel = createLabel("Maturity Date (YYYY-MM-DD):");
+        maturityDateLabel.setVisible(false);
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        formPanel.add(maturityDateLabel, gbc);
+        
+        maturityDateField = new JTextField(15);
+        styleTextField(maturityDateField);
+        maturityDateField.setVisible(false);
+        gbc.gridx = 1;
+        formPanel.add(maturityDateField, gbc);
+        
+        // Interest Rate (for FD)
+        interestRateLabel = createLabel("Interest Rate (%):");
+        interestRateLabel.setVisible(false);
+        gbc.gridx = 2;
+        formPanel.add(interestRateLabel, gbc);
+        
+        interestRateField = new JTextField(15);
+        styleTextField(interestRateField);
+        interestRateField.setVisible(false);
+        gbc.gridx = 3;
+        formPanel.add(interestRateField, gbc);
+        
+        // Action (Buy/Sell) for Stocks, Gold, Real Estate
+        actionLabel = createLabel("Action:");
+        actionLabel.setVisible(false);
+        gbc.gridx = 0;
+        gbc.gridy = 4;
+        formPanel.add(actionLabel, gbc);
+        
+        String[] actions = {"Buy", "Sell"};
+        actionCombo = new JComboBox<>(actions);
+        styleComboBox(actionCombo);
+        actionCombo.setVisible(false);
+        gbc.gridx = 1;
+        formPanel.add(actionCombo, gbc);
+        
         // Add Investment Button
         JButton addButton = new JButton("💾 Add Investment");
         addButton.setFont(new Font("Segoe UI", Font.BOLD, 12));
@@ -191,6 +265,7 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
                 String startDate = startDateField.getText().trim();
                 String frequency = (String) frequencyCombo.getSelectedItem();
                 Integer paymentDay = frequency.equals("Monthly") ? (Integer) paymentDaySpinner.getValue() : null;
+                String action = (String) actionCombo.getSelectedItem();
                 
                 // Validation
                 if (name.isEmpty() || amountStr.isEmpty() || startDate.isEmpty()) {
@@ -216,38 +291,93 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
                     return;
                 }
                 
-                Investment investment = new Investment(name, category, amount, startDate, frequency, paymentDay);
-                if (investmentDAO.addInvestment(investment)) {
-                    // Create a corresponding transaction entry for the investment
-                    String transactionCategory = "Investment-" + category;
-                    Transaction investmentTransaction = new Transaction(
-                        "Expense",
+                // Validate optional fields based on category
+                String maturityDate = null;
+                Double interestRate = null;
+                
+                if ("Fixed Deposit (FD)".equals(category)) {
+                    String maturityDateStr = maturityDateField.getText().trim();
+                    String interestRateStr = interestRateField.getText().trim();
+                    
+                    if (!maturityDateStr.isEmpty()) {
+                        if (!maturityDateStr.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                            JOptionPane.showMessageDialog(this, "Maturity date must be in YYYY-MM-DD format.", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                            return;
+                        }
+                        maturityDate = maturityDateStr;
+                    }
+                    
+                    if (!interestRateStr.isEmpty()) {
+                        try {
+                            interestRate = Double.parseDouble(interestRateStr);
+                        } catch (NumberFormatException ex) {
+                            JOptionPane.showMessageDialog(this, "Interest rate must be a valid number.", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                            return;
+                        }
+                    }
+                }
+                
+                // For Stocks, Gold, Real Estate - handle as transactions only
+                boolean isTradeableAsset = "Stocks".equals(category) || "Gold".equals(category) || "Real Estate".equals(category);
+                
+                if (isTradeableAsset) {
+                    // Create transaction only (not in investments table)
+                    String transactionType = "Buy".equals(action) ? "Expense" : "Income";
+                    String transactionCategory = category + "-" + action;
+                    Transaction tradeTransaction = new Transaction(
+                        transactionType,
                         transactionCategory,
                         amount,
                         startDate,
                         name,
-                        "investment"
+                        "investment-" + action.toLowerCase()
                     );
                     
-                    boolean transactionAdded = transactionDAO.addTransaction(investmentTransaction);
-                    
-                    if (transactionAdded) {
-                        JOptionPane.showMessageDialog(this, "Investment added successfully!\nTransaction logged: " + transactionCategory, "Success", JOptionPane.INFORMATION_MESSAGE);
+                    if (transactionDAO.addTransaction(tradeTransaction)) {
+                        JOptionPane.showMessageDialog(this, action + " transaction recorded successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
                         nameField.setText("");
                         amountField.setText("");
                         startDateField.setText("");
+                        actionCombo.setSelectedIndex(0);
+                        reloadTableData();
+                        mainFrame.refreshAllPanels();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Failed to record transaction.", "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                } else {
+                    // Regular investment (SIP, FD, etc.)
+                    Investment investment = new Investment(name, category, amount, startDate, frequency, paymentDay, maturityDate, interestRate);
+                    if (investmentDAO.addInvestment(investment)) {
+                        // For SIPs, don't create a transaction here - processRecurringSIPs will handle it
+                        // For other categories, create appropriate transaction
+                        if (!"SIP".equalsIgnoreCase(category)) {
+                            String transactionCategory = "Investment-" + category;
+                            Transaction investmentTransaction = new Transaction(
+                                "Expense",
+                                transactionCategory,
+                                amount,
+                                startDate,
+                                name,
+                                "investment"
+                            );
+                            transactionDAO.addTransaction(investmentTransaction);
+                        }
+                        
+                        JOptionPane.showMessageDialog(this, "Investment added successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                        nameField.setText("");
+                        amountField.setText("");
+                        startDateField.setText("");
+                        maturityDateField.setText("");
+                        interestRateField.setText("");
                         categoryCombo.setSelectedIndex(0);
                         frequencyCombo.setSelectedIndex(0);
                         paymentDaySpinner.setValue(5);
                         reloadTableData();
-                        // Refresh all panels to show the new transaction
+                        // Refresh all panels
                         mainFrame.refreshAllPanels();
                     } else {
-                        JOptionPane.showMessageDialog(this, "Investment saved but failed to create transaction record.", "Warning", JOptionPane.WARNING_MESSAGE);
-                        reloadTableData();
+                        JOptionPane.showMessageDialog(this, "Failed to add investment.", "Error", JOptionPane.ERROR_MESSAGE);
                     }
-                } else {
-                    JOptionPane.showMessageDialog(this, "Failed to add investment.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
@@ -256,7 +386,7 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
         });
         
         gbc.gridx = 0;
-        gbc.gridy = 3;
+        gbc.gridy = 5;
         gbc.gridwidth = 4;
         gbc.anchor = GridBagConstraints.CENTER;
         formPanel.add(addButton, gbc);
@@ -297,6 +427,30 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
         scrollPane.setBackground(PANEL_COLOR);
         scrollPane.setForeground(TEXT_COLOR);
         tablePanel.add(scrollPane, BorderLayout.CENTER);
+        
+        // Add Process SIPs and Delete buttons
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
+        buttonPanel.setBackground(PANEL_COLOR);
+        
+        JButton processSIPsButton = new JButton("Process Recurring SIPs");
+        processSIPsButton.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        processSIPsButton.setForeground(TEXT_COLOR);
+        processSIPsButton.setBackground(ACCENT_COLOR);
+        processSIPsButton.setFocusPainted(false);
+        processSIPsButton.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
+        processSIPsButton.addActionListener(e -> processRecurringSIPs());
+        buttonPanel.add(processSIPsButton);
+        
+        JButton deleteButton = new JButton("🗑️ Delete Selected");
+        deleteButton.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        deleteButton.setForeground(TEXT_COLOR);
+        deleteButton.setBackground(new Color(220, 53, 69));
+        deleteButton.setFocusPainted(false);
+        deleteButton.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
+        deleteButton.addActionListener(e -> deleteSelectedInvestment());
+        buttonPanel.add(deleteButton);
+        
+        tablePanel.add(buttonPanel, BorderLayout.SOUTH);
         
         return tablePanel;
     }
@@ -347,6 +501,138 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
         if (editor instanceof JSpinner.DefaultEditor) {
             ((JSpinner.DefaultEditor) editor).getTextField().setBackground(BACKGROUND_COLOR);
             ((JSpinner.DefaultEditor) editor).getTextField().setForeground(TEXT_COLOR);
+        }
+    }
+    
+    private void deleteSelectedInvestment() {
+        int selectedRow = investmentTable.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "Please select an investment to delete.", "No Selection", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        // Get ID and name from table model
+        int investmentId = (Integer) tableModel.getValueAt(selectedRow, 0);
+        String investmentName = (String) tableModel.getValueAt(selectedRow, 1);
+        
+        int confirm = JOptionPane.showConfirmDialog(
+            this,
+            "Are you sure you want to delete this investment?\nThis will also delete all associated transactions.",
+            "Confirm Delete",
+            JOptionPane.YES_NO_OPTION
+        );
+        
+        if (confirm == JOptionPane.YES_OPTION) {
+            if (investmentDAO.deleteInvestment(investmentId)) {
+                transactionDAO.deleteTransactionsByName(investmentName);
+                JOptionPane.showMessageDialog(this, "Investment and associated transactions deleted successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                reloadTableData();
+                mainFrame.refreshAllPanels();
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to delete investment.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+    
+    private void processRecurringSIPs() {
+        try {
+            Calendar today = Calendar.getInstance();
+            int currentDay = today.get(Calendar.DAY_OF_MONTH);
+            int currentMonth = today.get(Calendar.MONTH) + 1; // 1-12
+            int currentYear = today.get(Calendar.YEAR);
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+            SimpleDateFormat monthFormat = new SimpleDateFormat("yyyy-MM");
+            String currentDate = sdf.format(today.getTime());
+            String currentYearMonth = monthFormat.format(today.getTime());
+            
+            List<Investment> allInvestments = investmentDAO.getAllInvestments();
+            int processedCount = 0;
+            
+            for (Investment sip : allInvestments) {
+                // Check if it's a SIP
+                if (!"SIP".equalsIgnoreCase(sip.getCategory())) {
+                    continue;
+                }
+                
+                String frequency = sip.getFrequency();
+                if (frequency == null) {
+                    continue;
+                }
+                
+                // Check: Is current date after SIP's start date?
+                if (currentDate.compareTo(sip.getStartDate()) < 0) {
+                    continue;
+                }
+                
+                boolean shouldProcess = false;
+                
+                switch (frequency.toLowerCase()) {
+                    case "one-time":
+                        // Process only if today is on or after start date
+                        shouldProcess = !transactionDAO.hasTransactionForMonth(sip.getName(), currentYearMonth);
+                        break;
+                        
+                    case "monthly":
+                        // Check if current day >= SIP's payment day
+                        Integer monthlyPaymentDay = sip.getDayOfMonth();
+                        if (monthlyPaymentDay != null && currentDay >= monthlyPaymentDay) {
+                            shouldProcess = !transactionDAO.hasTransactionForMonth(sip.getName(), currentYearMonth);
+                        }
+                        break;
+                        
+                    case "quarterly":
+                        // Process in months 1, 4, 7, 10 (Jan, Apr, Jul, Oct)
+                        if ((currentMonth == 1 || currentMonth == 4 || currentMonth == 7 || currentMonth == 10)) {
+                            Integer quarterlyPaymentDay = sip.getDayOfMonth();
+                            if (quarterlyPaymentDay == null || currentDay >= quarterlyPaymentDay) {
+                                shouldProcess = !transactionDAO.hasTransactionForMonth(sip.getName(), currentYearMonth);
+                            }
+                        }
+                        break;
+                        
+                    case "yearly":
+                        // Parse start date to get month and day
+                        try {
+                            String[] parts = sip.getStartDate().split("-");
+                            int startMonth = Integer.parseInt(parts[1]);
+                            int startDay = Integer.parseInt(parts[2]);
+                            
+                            // Process if current month and day match start date's month and day
+                            if (currentMonth == startMonth && currentDay >= startDay) {
+                                shouldProcess = !transactionDAO.hasTransactionForMonth(sip.getName(), currentYearMonth);
+                            }
+                        } catch (Exception ex) {
+                            System.err.println("Error parsing start date for yearly SIP: " + ex.getMessage());
+                        }
+                        break;
+                }
+                
+                if (shouldProcess) {
+                    // Create recurring payment
+                    Transaction recurringPayment = new Transaction(
+                        "Expense",
+                        "Investment-SIP",
+                        sip.getAmount(),
+                        currentDate,
+                        sip.getName(),
+                        "investment-recurring"
+                    );
+                    
+                    if (transactionDAO.addTransaction(recurringPayment)) {
+                        processedCount++;
+                    }
+                }
+            }
+            
+            if (processedCount > 0) {
+                mainFrame.refreshAllPanels();
+                JOptionPane.showMessageDialog(this, "Recurring SIPs processed.\nTotal payments: " + processedCount, "Success", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this, "No SIPs eligible for processing today.", "Info", JOptionPane.INFORMATION_MESSAGE);
+            }
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Error processing SIPs: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            ex.printStackTrace();
         }
     }
     

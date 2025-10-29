@@ -10,7 +10,7 @@ public class InvestmentDAO {
     
     /**
      * Adds a new investment to the investments table.
-     * If the investment is a SIP with Monthly frequency, it also creates an Expense transaction.
+     * Note: SIPs are not given automatic transactions - use processRecurringSIPs() to generate them.
      */
     public boolean addInvestment(Investment investment) {
         Connection conn = DBConnection.getConnection();
@@ -20,7 +20,7 @@ public class InvestmentDAO {
         }
         
         try {
-            String sql = "INSERT INTO investments (name, category, amount, start_date, frequency, day_of_month) VALUES (?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO investments (name, category, amount, start_date, frequency, day_of_month, maturity_date, interest_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             PreparedStatement pstmt = conn.prepareStatement(sql);
             pstmt.setString(1, investment.getName());
             pstmt.setString(2, investment.getCategory());
@@ -34,22 +34,20 @@ public class InvestmentDAO {
                 pstmt.setNull(6, Types.INTEGER);
             }
             
+            if (investment.getMaturityDate() != null && !investment.getMaturityDate().isEmpty()) {
+                pstmt.setString(7, investment.getMaturityDate());
+            } else {
+                pstmt.setNull(7, Types.VARCHAR);
+            }
+            
+            if (investment.getInterestRate() != null) {
+                pstmt.setDouble(8, investment.getInterestRate());
+            } else {
+                pstmt.setNull(8, Types.REAL);
+            }
+            
             pstmt.executeUpdate();
             pstmt.close();
-            
-            // If it's a SIP investment with Monthly frequency, add the first payment as an expense
-            if ("SIP".equalsIgnoreCase(investment.getCategory()) && "Monthly".equalsIgnoreCase(investment.getFrequency())) {
-                TransactionDAO transactionDAO = new TransactionDAO();
-                Transaction sipExpense = new Transaction(
-                    "Expense",
-                    "Investment-SIP",
-                    investment.getAmount(),
-                    investment.getStartDate(),
-                    investment.getName(),
-                    "investment"
-                );
-                transactionDAO.addTransaction(sipExpense);
-            }
             
             return true;
         } catch (SQLException e) {
@@ -71,7 +69,7 @@ public class InvestmentDAO {
         }
         
         try {
-            String sql = "SELECT id, name, category, amount, start_date, frequency, day_of_month FROM investments ORDER BY start_date DESC";
+            String sql = "SELECT id, name, category, amount, start_date, frequency, day_of_month, maturity_date, interest_rate FROM investments ORDER BY start_date DESC";
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(sql);
             
@@ -83,8 +81,10 @@ public class InvestmentDAO {
                 String startDate = rs.getString("start_date");
                 String frequency = rs.getString("frequency");
                 Integer dayOfMonth = rs.getObject("day_of_month") != null ? rs.getInt("day_of_month") : null;
+                String maturityDate = rs.getString("maturity_date");
+                Double interestRate = rs.getObject("interest_rate") != null ? rs.getDouble("interest_rate") : null;
                 
-                Investment investment = new Investment(id, name, category, amount, startDate, frequency, dayOfMonth);
+                Investment investment = new Investment(id, name, category, amount, startDate, frequency, dayOfMonth, maturityDate, interestRate);
                 investments.add(investment);
             }
             
@@ -117,6 +117,31 @@ public class InvestmentDAO {
             return true;
         } catch (SQLException e) {
             System.err.println("Error deleting investment: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    /**
+     * Updates investment status (e.g., "Active", "Matured").
+     */
+    public boolean updateInvestmentStatus(int investmentId, String status) {
+        Connection conn = DBConnection.getConnection();
+        if (conn == null) {
+            System.err.println("Database connection failed");
+            return false;
+        }
+        
+        try {
+            String sql = "UPDATE investments SET status = ? WHERE id = ?";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, status);
+            pstmt.setInt(2, investmentId);
+            pstmt.executeUpdate();
+            pstmt.close();
+            return true;
+        } catch (SQLException e) {
+            System.err.println("Error updating investment status: " + e.getMessage());
             e.printStackTrace();
             return false;
         }

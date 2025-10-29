@@ -8,9 +8,11 @@ public class Investment {
     private String startDate;
     private String frequency;
     private Integer dayOfMonth;
+    private String maturityDate;
+    private Double interestRate;
     
     // Full constructor
-    public Investment(int id, String name, String category, double amount, String startDate, String frequency, Integer dayOfMonth) {
+    public Investment(int id, String name, String category, double amount, String startDate, String frequency, Integer dayOfMonth, String maturityDate, Double interestRate) {
         this.id = id;
         this.name = name;
         this.category = category;
@@ -18,16 +20,20 @@ public class Investment {
         this.startDate = startDate;
         this.frequency = frequency;
         this.dayOfMonth = dayOfMonth;
+        this.maturityDate = maturityDate;
+        this.interestRate = interestRate;
     }
     
     // Constructor without id (for new investments)
-    public Investment(String name, String category, double amount, String startDate, String frequency, Integer dayOfMonth) {
+    public Investment(String name, String category, double amount, String startDate, String frequency, Integer dayOfMonth, String maturityDate, Double interestRate) {
         this.name = name;
         this.category = category;
         this.amount = amount;
         this.startDate = startDate;
         this.frequency = frequency;
         this.dayOfMonth = dayOfMonth;
+        this.maturityDate = maturityDate;
+        this.interestRate = interestRate;
     }
     
     // Getters and Setters
@@ -85,5 +91,21 @@ public class Investment {
     
     public void setDayOfMonth(Integer dayOfMonth) {
         this.dayOfMonth = dayOfMonth;
+    }
+    
+    public String getMaturityDate() {
+        return maturityDate;
+    }
+    
+    public void setMaturityDate(String maturityDate) {
+        this.maturityDate = maturityDate;
+    }
+    
+    public Double getInterestRate() {
+        return interestRate;
+    }
+    
+    public void setInterestRate(Double interestRate) {
+        this.interestRate = interestRate;
     }
 }

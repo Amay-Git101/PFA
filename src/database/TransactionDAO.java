@@ -132,6 +132,29 @@ public class TransactionDAO {
         }
     }
     
+    public boolean deleteTransactionsByName(String name) {
+        String sql = "DELETE FROM transactions WHERE notes = ? AND source LIKE 'investment%'";
+        
+        Connection conn = DBConnection.getConnection();
+        if (conn == null) {
+            System.err.println("Database connection failed");
+            return false;
+        }
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, name);
+            int result = pstmt.executeUpdate();
+            if (result > 0) {
+                // Fire event for each deleted transaction (simplified)
+                TransactionEventManager.getInstance().notifyTransactionsRefreshed();
+                return true;
+            }
+            return false;
+        } catch (SQLException e) {
+            System.err.println("Error deleting transactions by name: " + e.getMessage());
+            return false;
+        }
+    }
+    
     public double getTotalIncome() {
         String sql = "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE type = 'Income'";
         
@@ -207,6 +230,28 @@ public class TransactionDAO {
     
     public List<Transaction> getTransactionsForCurrentMonth() {
         return getTransactionsByDuration("This Month");
+    }
+    
+    public boolean hasTransactionForMonth(String note, String yearMonth) {
+        String sql = "SELECT COUNT(*) FROM transactions WHERE notes = ? AND strftime('%Y-%m', date) = ?";
+        
+        try {
+            Connection conn = DBConnection.getConnection();
+            if (conn == null) {
+                return false;
+            }
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, note);
+                pstmt.setString(2, yearMonth);
+                ResultSet rs = pstmt.executeQuery();
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error checking for transaction: " + e.getMessage());
+        }
+        return false;
     }
     
     public List<Transaction> getTransactionsByDuration(String duration) {

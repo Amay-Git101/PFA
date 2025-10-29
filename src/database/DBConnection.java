@@ -88,7 +88,9 @@ public class DBConnection {
                     amount REAL NOT NULL,
                     start_date TEXT NOT NULL,
                     frequency TEXT NOT NULL,
-                    day_of_month INTEGER
+                    day_of_month INTEGER,
+                    maturity_date TEXT,
+                    interest_rate REAL
                 )
                 """;
             stmt.execute(createInvestmentsTable);
@@ -125,6 +127,18 @@ public class DBConnection {
                     System.out.println("Migrating database: Adding source column to transactions table...");
                     stmt.execute("ALTER TABLE transactions ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'");
                     System.out.println("Migration complete: source column added successfully.");
+                }
+            }
+            
+            // Check if maturity_date column exists in investments table
+            try {
+                stmt.executeQuery("SELECT maturity_date FROM investments LIMIT 1");
+            } catch (SQLException e) {
+                if (e.getMessage().contains("no such column")) {
+                    System.out.println("Migrating database: Adding maturity_date and interest_rate columns to investments table...");
+                    stmt.execute("ALTER TABLE investments ADD COLUMN maturity_date TEXT");
+                    stmt.execute("ALTER TABLE investments ADD COLUMN interest_rate REAL");
+                    System.out.println("Migration complete: new investment columns added successfully.");
                 }
             }
         } catch (SQLException e) {
