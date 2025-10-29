@@ -78,6 +78,20 @@ public class DBConnection {
                 """;
             stmt.execute(createCategoryBudgetsTable);
             
+            // Create investments table
+            String createInvestmentsTable = """
+                CREATE TABLE IF NOT EXISTS investments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    amount REAL NOT NULL,
+                    start_date TEXT NOT NULL,
+                    frequency TEXT NOT NULL,
+                    day_of_month INTEGER
+                )
+                """;
+            stmt.execute(createInvestmentsTable);
+            
             // Create settings table
             String createSettingsTable = """
                 CREATE TABLE IF NOT EXISTS app_settings (

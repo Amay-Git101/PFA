@@ -41,10 +41,11 @@ public class Main extends JFrame {
         
         // Add panels
         mainContentPanel.add(new DashboardPanel(), "Dashboard");
+        mainContentPanel.add(new AiPanel(), "AI Advisor");
+        mainContentPanel.add(new InvestmentPanel(), "Investment Management");
         mainContentPanel.add(new ExpensePanel(), "Expenses");
         mainContentPanel.add(new BudgetPanel(), "Budget");
         mainContentPanel.add(new ReportsPanel(), "Reports");
-        mainContentPanel.add(new AiPanel(), "AI Advisor");
         mainContentPanel.add(new SettingsPanel(), "Settings");
         
         add(mainContentPanel, BorderLayout.CENTER);
@@ -123,8 +124,8 @@ public class Main extends JFrame {
         sidebar.add(Box.createVerticalStrut(30));
         
         // Create navigation buttons
-        String[] menuItems = {"Dashboard", "Expenses", "Budget", "Reports", "AI Advisor", "Settings"};
-        String[] icons = {"🏠", "💰", "📊", "📈", "🤖", "⚙️"};
+        String[] menuItems = {"Dashboard", "AI Advisor", "Investment Management", "Expenses", "Budget", "Reports", "Settings"};
+        String[] icons = {"🏠", "🤖", "📈", "💰", "📊", "📉", "⚙️"};
         
         for (int i = 0; i < menuItems.length; i++) {
             JButton button = createSidebarButton(icons[i] + "  " + menuItems[i], menuItems[i]);
