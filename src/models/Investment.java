@@ -10,9 +10,10 @@ public class Investment {
     private Integer dayOfMonth;
     private String maturityDate;
     private Double interestRate;
+    private String status;
     
     // Full constructor
-    public Investment(int id, String name, String category, double amount, String startDate, String frequency, Integer dayOfMonth, String maturityDate, Double interestRate) {
+    public Investment(int id, String name, String category, double amount, String startDate, String frequency, Integer dayOfMonth, String maturityDate, Double interestRate, String status) {
         this.id = id;
         this.name = name;
         this.category = category;
@@ -22,6 +23,7 @@ public class Investment {
         this.dayOfMonth = dayOfMonth;
         this.maturityDate = maturityDate;
         this.interestRate = interestRate;
+        this.status = status != null ? status : "Active";
     }
     
     // Constructor without id (for new investments)
@@ -34,6 +36,7 @@ public class Investment {
         this.dayOfMonth = dayOfMonth;
         this.maturityDate = maturityDate;
         this.interestRate = interestRate;
+        this.status = "Active";
     }
     
     // Getters and Setters
@@ -107,5 +110,13 @@ public class Investment {
     
     public void setInterestRate(Double interestRate) {
         this.interestRate = interestRate;
+    }
+    
+    public String getStatus() {
+        return status;
+    }
+    
+    public void setStatus(String status) {
+        this.status = status;
     }
 }

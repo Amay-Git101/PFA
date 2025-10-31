@@ -1,5 +1,6 @@
 package ui;
 
+import backend.SettingsManager;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
@@ -13,7 +14,7 @@ public class SettingsPanel extends JPanel {
     private DataExportImport dataExportImport;
     private JTextField nameField;
     private JComboBox<String> currencyComboBox;
-    private JComboBox<String> themeComboBox;
+    private Main mainFrame;
     
     // Theme colors
     private static final Color BACKGROUND_COLOR = new Color(30, 30, 30);
@@ -22,7 +23,8 @@ public class SettingsPanel extends JPanel {
     private static final Color TEXT_COLOR = Color.WHITE;
     private static final Color BORDER_COLOR = new Color(60, 60, 60);
     
-    public SettingsPanel() {
+    public SettingsPanel(Main mainFrame) {
+        this.mainFrame = mainFrame;
         settingsDAO = new AppSettingsDAO();
         dataExportImport = new DataExportImport();
         
@@ -113,32 +115,18 @@ public class SettingsPanel extends JPanel {
         panel.add(createLabel("Currency:"), gbc);
         
         currencyComboBox = new JComboBox<>(new String[]{
-            "USD ($)", "EUR (€)", "GBP (£)", "JPY (¥)", "CAD ($)", "AUD ($)"
+            "INR (₹)", "USD ($)", "EUR (€)", "GBP (£)"
         });
         styleComboBox(currencyComboBox);
         currencyComboBox.setPreferredSize(new Dimension(150, 30));
         gbc.gridx = 1; gbc.gridy = 2;
         panel.add(currencyComboBox, gbc);
         
-        // Theme selection
-        gbc.gridx = 0; gbc.gridy = 3;
-        gbc.fill = GridBagConstraints.NONE;
-        gbc.weightx = 0;
-        panel.add(createLabel("Theme:"), gbc);
-        
-        themeComboBox = new JComboBox<>(new String[]{
-            "Dark (Default)", "Light"
-        });
-        styleComboBox(themeComboBox);
-        themeComboBox.setPreferredSize(new Dimension(150, 30));
-        gbc.gridx = 1; gbc.gridy = 3;
-        panel.add(themeComboBox, gbc);
-        
         // Save button
         JButton saveButton = createStyledButton("💾 Save Settings");
         saveButton.setPreferredSize(new Dimension(180, 40));
         saveButton.addActionListener(e -> saveSettings());
-        gbc.gridx = 0; gbc.gridy = 4;
+        gbc.gridx = 0; gbc.gridy = 3;
         gbc.gridwidth = 2;
         gbc.fill = GridBagConstraints.NONE;
         gbc.anchor = GridBagConstraints.CENTER;
@@ -323,8 +311,7 @@ public class SettingsPanel extends JPanel {
     
     private void saveSettings() {
         String name = nameField.getText().trim();
-        String currency = (String) currencyComboBox.getSelectedItem();
-        String theme = (String) themeComboBox.getSelectedItem();
+        String currencyDisplay = (String) currencyComboBox.getSelectedItem();
         
         if (name.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Please enter a display name.", 
@@ -332,25 +319,54 @@ public class SettingsPanel extends JPanel {
             return;
         }
         
-        // Save to database
+        // Extract currency code from display string
+        String currencyCode = "INR"; // Default
+        if (currencyDisplay.startsWith("USD")) {
+            currencyCode = "USD";
+        } else if (currencyDisplay.startsWith("EUR")) {
+            currencyCode = "EUR";
+        } else if (currencyDisplay.startsWith("GBP")) {
+            currencyCode = "GBP";
+        } else if (currencyDisplay.startsWith("INR")) {
+            currencyCode = "INR";
+        }
+        
+        // Save to database and SettingsManager
         settingsDAO.setSetting("user_name", name);
-        settingsDAO.setSetting("currency", currency);
-        settingsDAO.setSetting("theme", theme);
+        SettingsManager.setCurrency(currencyCode);
         
         JOptionPane.showMessageDialog(this, 
-            "Settings saved successfully!\nName: " + name + "\nCurrency: " + currency + "\nTheme: " + theme,
+            "Settings saved successfully!\nCurrency: " + currencyDisplay,
             "Settings Saved", JOptionPane.INFORMATION_MESSAGE);
+        
+        // Refresh all panels to show new currency
+        if (mainFrame != null) {
+            mainFrame.refreshAllPanels();
+        }
     }
     
     private void loadSettings() {
         String savedName = settingsDAO.getSetting("user_name", "User");
-        String savedCurrency = settingsDAO.getSetting("currency", "USD ($)");
-        String savedTheme = settingsDAO.getSetting("theme", "Dark (Default)");
+        String currencyCode = SettingsManager.getCurrencyCode();
         
         nameField.setText(savedName);
-        currencyComboBox.setSelectedItem(savedCurrency);
-        if (themeComboBox != null) {
-            themeComboBox.setSelectedItem(savedTheme);
+        
+        // Select the correct currency in dropdown
+        switch (currencyCode) {
+            case "INR":
+                currencyComboBox.setSelectedItem("INR (₹)");
+                break;
+            case "USD":
+                currencyComboBox.setSelectedItem("USD ($)");
+                break;
+            case "EUR":
+                currencyComboBox.setSelectedItem("EUR (€)");
+                break;
+            case "GBP":
+                currencyComboBox.setSelectedItem("GBP (£)");
+                break;
+            default:
+                currencyComboBox.setSelectedItem("INR (₹)");
         }
     }
     

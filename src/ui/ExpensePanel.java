@@ -1,5 +1,6 @@
 package ui;
 
+import backend.SettingsManager;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -21,7 +22,7 @@ public class ExpensePanel extends JPanel implements TransactionListener, Refresh
     private JComboBox<String> typeComboBox;
     private JComboBox<String> categoryComboBox;
     private JTextField amountField;
-    private JTextField dateField;
+    private DatePickerField dateField;
     private JTextArea notesArea;
     private Main mainFrame;
     
@@ -126,7 +127,7 @@ public class ExpensePanel extends JPanel implements TransactionListener, Refresh
         
         gbc.gridx = 4; gbc.gridy = 0;
         gbc.weightx = 0;
-        mainForm.add(createLabel("Amount ($):"), gbc);
+        mainForm.add(createLabel("Amount (" + SettingsManager.getCurrencySymbol() + "):"), gbc);
         
         amountField = createTextField();
         gbc.gridx = 5; gbc.gridy = 0;
@@ -138,7 +139,7 @@ public class ExpensePanel extends JPanel implements TransactionListener, Refresh
         gbc.weightx = 0;
         mainForm.add(createLabel("Date:"), gbc);
         
-        dateField = createTextField();
+        dateField = new DatePickerField();
         dateField.setText(LocalDate.now().toString());
         gbc.gridx = 1; gbc.gridy = 1;
         gbc.weightx = 0.25;
@@ -341,7 +342,7 @@ public class ExpensePanel extends JPanel implements TransactionListener, Refresh
             // Validate amount
             double amount = Double.parseDouble(amountField.getText());
             if (amount <= 0) {
-                JOptionPane.showMessageDialog(this, "Amount must be greater than $0.00", 
+                JOptionPane.showMessageDialog(this, "Amount must be greater than 0",
                     "Invalid Amount", JOptionPane.WARNING_MESSAGE);
                 return;
             }
@@ -430,7 +431,7 @@ public class ExpensePanel extends JPanel implements TransactionListener, Refresh
                 transaction.getDate(),
                 transaction.getType(),
                 transaction.getCategory(),
-                String.format("$%.2f", transaction.getAmount()),
+                String.format("%s%.2f", SettingsManager.getCurrencySymbol(), transaction.getAmount()),
                 transaction.getNotes()
             };
             tableModel.addRow(row);

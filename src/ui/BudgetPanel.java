@@ -7,6 +7,7 @@ import database.TransactionDAO;
 import database.CategoryDAO;
 import database.CategoryBudgetDAO;
 import models.BudgetCategory;
+import models.Transaction;
 import backend.BudgetLogic;
 import java.util.List;
 import java.util.Map;
@@ -434,6 +435,9 @@ public class BudgetPanel extends JPanel implements Refreshable {
         String selectedMonth = (String) monthComboBox.getSelectedItem();
         if (selectedMonth == null) selectedMonth = CategoryBudgetDAO.getCurrentMonth();
         
+        // Make final for lambda expression
+        final String finalSelectedMonth = selectedMonth;
+        
         // Get all categories
         List<String> expenseCategories = categoryDAO.getCategoriesByType("Expense");
         
@@ -443,16 +447,24 @@ public class BudgetPanel extends JPanel implements Refreshable {
         // Get budget map for the month
         Map<Integer, Double> budgetMap = categoryBudgetDAO.getBudgetMapByMonth(selectedMonth);
         
+        // Get all transactions and filter by month and type
+        List<Transaction> allTransactions = transactionDAO.getAllTransactions();
+        
         // Populate table with each category
         for (String categoryName : expenseCategories) {
             int categoryId = categoryDAO.getCategoryId(categoryName);
             double budgetLimit = budgetMap.getOrDefault(categoryId, 0.0);
             
-            // TODO: Calculate spent and remaining for this category in this month
-            double spent = 0.0; // Will be calculated from transactions
+            // Calculate spent for this category in the selected month
+            double spent = allTransactions.stream()
+                .filter(t -> "Expense".equals(t.getType()))
+                .filter(t -> categoryName.equals(t.getCategory()))
+                .filter(t -> isInSelectedMonth(t.getDate(), finalSelectedMonth))
+                .mapToDouble(Transaction::getAmount)
+                .sum();
+            
             double remaining = budgetLimit - spent;
             double usagePercent = (budgetLimit > 0) ? (spent / budgetLimit) * 100 : 0;
-            
             Object[] row = {
                 categoryName,
                 String.format("$%.2f", budgetLimit),
@@ -462,6 +474,13 @@ public class BudgetPanel extends JPanel implements Refreshable {
             };
             categoryBudgetTableModel.addRow(row);
         }
+    }
+    
+    private boolean isInSelectedMonth(String transactionDate, String selectedMonth) {
+        // transactionDate format: "YYYY-MM-DD"
+        // selectedMonth format: "YYYY-MM" (e.g., "2025-01")
+        if (transactionDate == null || selectedMonth == null) return false;
+        return transactionDate.startsWith(selectedMonth);
     }
     
     private void saveCategoryBudgets() {

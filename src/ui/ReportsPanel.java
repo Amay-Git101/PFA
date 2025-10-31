@@ -15,6 +15,7 @@ import models.Transaction;
 public class ReportsPanel extends JPanel {
     private TransactionDAO transactionDAO;
     private CategoryDAO categoryDAO;
+    private JTabbedPane tabbedPane;
     
     // Theme colors
     private static final Color BACKGROUND_COLOR = new Color(30, 30, 30);
@@ -35,14 +36,24 @@ public class ReportsPanel extends JPanel {
     }
     
     private void initComponents() {
-        // Header
+        // Header panel with title and refresh button
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(BACKGROUND_COLOR);
+        
         JLabel headerLabel = new JLabel("📈 Financial Reports");
         headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
         headerLabel.setForeground(TEXT_COLOR);
-        add(headerLabel, BorderLayout.NORTH);
+        headerPanel.add(headerLabel, BorderLayout.WEST);
+        
+        // Refresh button
+        JButton refreshButton = createStyledButton("🔄 Refresh Reports");
+        refreshButton.addActionListener(e -> refreshAllReports());
+        headerPanel.add(refreshButton, BorderLayout.EAST);
+        
+        add(headerPanel, BorderLayout.NORTH);
         
         // Create tabbed pane for different reports
-        JTabbedPane tabbedPane = new JTabbedPane();
+        tabbedPane = new JTabbedPane();
         tabbedPane.setBackground(PANEL_COLOR);
         tabbedPane.setForeground(TEXT_COLOR);
         tabbedPane.setFont(new Font("Segoe UI", Font.PLAIN, 14));
@@ -165,7 +176,7 @@ public class ReportsPanel extends JPanel {
     }
     
     private Map<String, Double> getExpensesByCategory() {
-        Map<String, Double> expensesByCategory = new LinkedHashMap<>();
+        Map<String, Double> expensesByCategory = new java.util.HashMap<>();
         List<Transaction> allTransactions = transactionDAO.getAllTransactions();
         
         for (Transaction t : allTransactions) {
@@ -177,6 +188,59 @@ public class ReportsPanel extends JPanel {
             }
         }
         
-        return expensesByCategory;
+        // Sort by expense amount (highest first) and return as LinkedHashMap to maintain order
+        Map<String, Double> sortedExpenses = expensesByCategory.entrySet()
+            .stream()
+            .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+            .collect(java.util.stream.Collectors.toMap(
+                Map.Entry::getKey,
+                Map.Entry::getValue,
+                (e1, e2) -> e1,
+                LinkedHashMap::new
+            ));
+        
+        return sortedExpenses;
+    }
+    
+    private JButton createStyledButton(String text) {
+        JButton button = new JButton(text);
+        button.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        button.setForeground(TEXT_COLOR);
+        button.setBackground(ACCENT_COLOR);
+        button.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+        button.setFocusPainted(false);
+        
+        button.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                button.setBackground(ACCENT_COLOR.brighter());
+            }
+            
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                button.setBackground(ACCENT_COLOR);
+            }
+        });
+        
+        return button;
+    }
+    
+    private void refreshAllReports() {
+        // Remove all tabs
+        tabbedPane.removeAll();
+        
+        // Recreate all report panels with fresh data
+        JPanel expenseBreakdownPanel = createExpenseBreakdownReport();
+        tabbedPane.addTab("Expense Breakdown", expenseBreakdownPanel);
+        
+        JPanel incomeVsExpensePanel = createIncomeVsExpenseReport();
+        tabbedPane.addTab("Income vs Expense", incomeVsExpensePanel);
+        
+        JPanel categorySummaryPanel = createCategorySummaryReport();
+        tabbedPane.addTab("Category Summary", categorySummaryPanel);
+        
+        // Refresh the UI
+        tabbedPane.revalidate();
+        tabbedPane.repaint();
     }
 }

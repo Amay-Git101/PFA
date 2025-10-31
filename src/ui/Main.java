@@ -1,5 +1,6 @@
 package ui;
 
+import backend.SettingsManager;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
 import java.awt.*;
@@ -62,7 +63,7 @@ public class Main extends JFrame {
         mainContentPanel.add(expensePanel, "Expenses");
         mainContentPanel.add(budgetPanel, "Budget");
         mainContentPanel.add(new ReportsPanel(), "Reports");
-        mainContentPanel.add(new SettingsPanel(), "Settings");
+        mainContentPanel.add(new SettingsPanel(this), "Settings");
         
         // Register refreshable panels
         refreshablePanels.add(dashboardPanel);
@@ -244,6 +245,9 @@ public class Main extends JFrame {
     }
     
     public static void main(String[] args) {
+        // Load settings BEFORE initializing UI
+        SettingsManager.loadSettings();
+        
         SwingUtilities.invokeLater(() -> {
             try {
                 new Main().setVisible(true);

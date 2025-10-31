@@ -141,6 +141,17 @@ public class DBConnection {
                     System.out.println("Migration complete: new investment columns added successfully.");
                 }
             }
+            
+            // Check if status column exists in investments table
+            try {
+                stmt.executeQuery("SELECT status FROM investments LIMIT 1");
+            } catch (SQLException e) {
+                if (e.getMessage().contains("no such column")) {
+                    System.out.println("Migrating database: Adding status column to investments table...");
+                    stmt.execute("ALTER TABLE investments ADD COLUMN status TEXT DEFAULT 'Active'");
+                    System.out.println("Migration complete: status column added successfully.");
+                }
+            }
         } catch (SQLException e) {
             System.err.println("Error running migrations: " + e.getMessage());
         }
@@ -189,8 +200,8 @@ public class DBConnection {
             // Initialize default settings
             rs = stmt.executeQuery("SELECT COUNT(*) FROM app_settings");
             if (rs.next() && rs.getInt(1) == 0) {
-                stmt.execute("INSERT INTO app_settings (key, value) VALUES ('theme', 'dark')");
-                stmt.execute("INSERT INTO app_settings (key, value) VALUES ('currency', 'USD')");
+                stmt.execute("INSERT INTO app_settings (key, value) VALUES ('theme', 'Dark')");
+                stmt.execute("INSERT INTO app_settings (key, value) VALUES ('currency', 'INR')");
                 stmt.execute("INSERT INTO app_settings (key, value) VALUES ('user_name', 'User')");
             }
             

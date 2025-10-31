@@ -20,7 +20,7 @@ public class InvestmentDAO {
         }
         
         try {
-            String sql = "INSERT INTO investments (name, category, amount, start_date, frequency, day_of_month, maturity_date, interest_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO investments (name, category, amount, start_date, frequency, day_of_month, maturity_date, interest_rate, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
             PreparedStatement pstmt = conn.prepareStatement(sql);
             pstmt.setString(1, investment.getName());
             pstmt.setString(2, investment.getCategory());
@@ -46,6 +46,8 @@ public class InvestmentDAO {
                 pstmt.setNull(8, Types.REAL);
             }
             
+            pstmt.setString(9, "Active");
+            
             pstmt.executeUpdate();
             pstmt.close();
             
@@ -69,7 +71,7 @@ public class InvestmentDAO {
         }
         
         try {
-            String sql = "SELECT id, name, category, amount, start_date, frequency, day_of_month, maturity_date, interest_rate FROM investments ORDER BY start_date DESC";
+            String sql = "SELECT id, name, category, amount, start_date, frequency, day_of_month, maturity_date, interest_rate, status FROM investments ORDER BY start_date DESC";
             Statement stmt = conn.createStatement();
             ResultSet rs = stmt.executeQuery(sql);
             
@@ -83,8 +85,12 @@ public class InvestmentDAO {
                 Integer dayOfMonth = rs.getObject("day_of_month") != null ? rs.getInt("day_of_month") : null;
                 String maturityDate = rs.getString("maturity_date");
                 Double interestRate = rs.getObject("interest_rate") != null ? rs.getDouble("interest_rate") : null;
+                String status = rs.getString("status");
+                if (status == null || status.isEmpty()) {
+                    status = "Active";
+                }
                 
-                Investment investment = new Investment(id, name, category, amount, startDate, frequency, dayOfMonth, maturityDate, interestRate);
+                Investment investment = new Investment(id, name, category, amount, startDate, frequency, dayOfMonth, maturityDate, interestRate, status);
                 investments.add(investment);
             }
             

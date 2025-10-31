@@ -1,5 +1,6 @@
 package ui;
 
+import backend.SettingsManager;
 import database.InvestmentDAO;
 import database.TransactionDAO;
 import models.Investment;
@@ -12,6 +13,8 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ItemEvent;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Date;
 import java.util.Calendar;
@@ -26,7 +29,7 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
     private JLabel paymentDayLabel;
     private JSpinner paymentDaySpinner;
     private JLabel maturityDateLabel;
-    private JTextField maturityDateField;
+    private DatePickerField maturityDateField;
     private JLabel interestRateLabel;
     private JTextField interestRateField;
     private JLabel actionLabel;
@@ -117,7 +120,7 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
         formPanel.add(nameField, gbc);
         
         // Amount
-        JLabel amountLabel = createLabel("Amount (₹):");
+        JLabel amountLabel = createLabel("Amount (" + SettingsManager.getCurrencySymbol() + "):");
         gbc.gridx = 2;
         gbc.gridy = 0;
         formPanel.add(amountLabel, gbc);
@@ -166,13 +169,12 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
         });
         
         // Start Date
-        JLabel startDateLabel = createLabel("Start Date (YYYY-MM-DD):");
+        JLabel startDateLabel = createLabel("Start Date:");
         gbc.gridx = 2;
         gbc.gridy = 1;
         formPanel.add(startDateLabel, gbc);
         
-        JTextField startDateField = new JTextField(15);
-        styleTextField(startDateField);
+        DatePickerField startDateField = new DatePickerField();
         gbc.gridx = 3;
         formPanel.add(startDateField, gbc);
         
@@ -211,14 +213,13 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
         formPanel.add(paymentDaySpinner, gbc);
         
         // Maturity Date (for FD)
-        maturityDateLabel = createLabel("Maturity Date (YYYY-MM-DD):");
+        maturityDateLabel = createLabel("Maturity Date:");
         maturityDateLabel.setVisible(false);
         gbc.gridx = 0;
         gbc.gridy = 3;
         formPanel.add(maturityDateLabel, gbc);
         
-        maturityDateField = new JTextField(15);
-        styleTextField(maturityDateField);
+        maturityDateField = new DatePickerField();
         maturityDateField.setVisible(false);
         gbc.gridx = 1;
         formPanel.add(maturityDateField, gbc);
@@ -349,16 +350,15 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
                     Investment investment = new Investment(name, category, amount, startDate, frequency, paymentDay, maturityDate, interestRate);
                     if (investmentDAO.addInvestment(investment)) {
                         // For SIPs, don't create a transaction here - processRecurringSIPs will handle it
-                        // For other categories, create appropriate transaction
-                        if (!"SIP".equalsIgnoreCase(category)) {
-                            String transactionCategory = "Investment-" + category;
+                        // For FDs, create an expense transaction for the initial principal
+                        if ("Fixed Deposit (FD)".equals(category)) {
                             Transaction investmentTransaction = new Transaction(
                                 "Expense",
-                                transactionCategory,
+                                "Investment-FD",
                                 amount,
                                 startDate,
                                 name,
-                                "investment"
+                                "investment_fd_new"
                             );
                             transactionDAO.addTransaction(investmentTransaction);
                         }
@@ -404,7 +404,7 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
         ));
         
         // Table Model
-        String[] columnNames = {"Name", "Category", "Amount (₹)", "Start Date", "Frequency", "Payment Day"};
+        String[] columnNames = {"Name", "Category", "Amount (" + SettingsManager.getCurrencySymbol() + ")", "Start Date", "Frequency", "Payment Day"};
         tableModel = new DefaultTableModel(columnNames, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -450,6 +450,15 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
         deleteButton.addActionListener(e -> deleteSelectedInvestment());
         buttonPanel.add(deleteButton);
         
+        JButton checkMaturityButton = new JButton("Check for Matured FDs");
+        checkMaturityButton.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        checkMaturityButton.setForeground(TEXT_COLOR);
+        checkMaturityButton.setBackground(new Color(0, 123, 255));
+        checkMaturityButton.setFocusPainted(false);
+        checkMaturityButton.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
+        checkMaturityButton.addActionListener(e -> checkForMaturedFDs());
+        buttonPanel.add(checkMaturityButton);
+        
         tablePanel.add(buttonPanel, BorderLayout.SOUTH);
         
         return tablePanel;
@@ -463,7 +472,7 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
             Object[] row = {
                 inv.getName(),
                 inv.getCategory(),
-                String.format("₹%.2f", inv.getAmount()),
+                String.format("%s%.2f", SettingsManager.getCurrencySymbol(), inv.getAmount()),
                 inv.getStartDate(),
                 inv.getFrequency(),
                 inv.getDayOfMonth() != null ? inv.getDayOfMonth() : "-"
@@ -511,9 +520,23 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
             return;
         }
         
-        // Get ID and name from table model
-        int investmentId = (Integer) tableModel.getValueAt(selectedRow, 0);
-        String investmentName = (String) tableModel.getValueAt(selectedRow, 1);
+        // Get name from table (column 0 is name, not ID)
+        String investmentName = (String) tableModel.getValueAt(selectedRow, 0);
+        
+        // Find the investment by name to get its ID
+        List<Investment> investments = investmentDAO.getAllInvestments();
+        Investment selectedInvestment = null;
+        for (Investment inv : investments) {
+            if (inv.getName().equals(investmentName)) {
+                selectedInvestment = inv;
+                break;
+            }
+        }
+        
+        if (selectedInvestment == null) {
+            JOptionPane.showMessageDialog(this, "Could not find investment.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
         
         int confirm = JOptionPane.showConfirmDialog(
             this,
@@ -523,7 +546,7 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
         );
         
         if (confirm == JOptionPane.YES_OPTION) {
-            if (investmentDAO.deleteInvestment(investmentId)) {
+            if (investmentDAO.deleteInvestment(selectedInvestment.getId())) {
                 transactionDAO.deleteTransactionsByName(investmentName);
                 JOptionPane.showMessageDialog(this, "Investment and associated transactions deleted successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
                 reloadTableData();
@@ -659,5 +682,58 @@ public class InvestmentPanel extends JPanel implements TransactionListener, Refr
     @Override
     public void refreshData() {
         reloadTableData();
+    }
+    
+    private void checkForMaturedFDs() {
+        LocalDate today = LocalDate.now();
+        List<Investment> investments = investmentDAO.getAllInvestments();
+        int maturedCount = 0;
+        
+        for (Investment fd : investments) {
+            // Skip if not an Active FD or no maturity date
+            if (!"Fixed Deposit (FD)".equals(fd.getCategory()) || 
+                !"Active".equals(fd.getStatus()) ||
+                fd.getMaturityDate() == null || fd.getMaturityDate().isEmpty()) {
+                continue;
+            }
+            
+            LocalDate maturityDate = LocalDate.parse(fd.getMaturityDate());
+            
+            // Check if FD has matured
+            if (today.isAfter(maturityDate) || today.isEqual(maturityDate)) {
+                double principal = fd.getAmount();
+                double rate = fd.getInterestRate() != null ? fd.getInterestRate() : 0.0;
+                LocalDate startDate = LocalDate.parse(fd.getStartDate());
+                
+                // Calculate time in years (simple, as per roadmap)
+                long daysBetween = java.time.temporal.ChronoUnit.DAYS.between(startDate, maturityDate);
+                double timeInYears = daysBetween / 365.25;
+                
+                double interest = (principal * rate * timeInYears) / 100;
+                double maturedAmount = principal + interest;
+                
+                // Create income transaction for the full matured amount (Principal + Interest)
+                Transaction tx = new Transaction(
+                    "Income",
+                    "Investment-FD-Matured",
+                    maturedAmount,
+                    today.toString(),
+                    fd.getName() + " (Matured)",
+                    "investment_fd_matured"
+                );
+                transactionDAO.addTransaction(tx);
+                
+                // Update investment status
+                investmentDAO.updateInvestmentStatus(fd.getId(), "Matured");
+                maturedCount++;
+            }
+        }
+        
+        if (maturedCount > 0) {
+            JOptionPane.showMessageDialog(this, "Processed " + maturedCount + " matured FDs.", "Success", JOptionPane.INFORMATION_MESSAGE);
+            mainFrame.refreshAllPanels();
+        } else {
+            JOptionPane.showMessageDialog(this, "No FDs have matured.", "Info", JOptionPane.INFORMATION_MESSAGE);
+        }
     }
 }
