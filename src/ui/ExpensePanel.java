@@ -38,8 +38,9 @@ public class ExpensePanel extends JPanel implements TransactionListener, Refresh
         transactionDAO = new TransactionDAO();
         categoryDAO = new CategoryDAO();
         
-        setBackground(BACKGROUND_COLOR);
+        // CRITICAL: Set layout FIRST before any component operations
         setLayout(new BorderLayout(10, 10));
+        setBackground(BACKGROUND_COLOR);
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         
         initComponents();
