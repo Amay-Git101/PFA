@@ -2,13 +2,24 @@ package ui;
 
 import javax.swing.*;
 import java.awt.*;
-import backend.BudgetLogic;
+import service.AIService;
+import service.GeminiService;
+import service.OpenRouterService;
+import service.SummarizerService;
+import org.json.JSONObject;
+import backend.DataExportImport;
+import database.AppSettingsDAO;
 
 public class AiPanel extends JPanel implements Refreshable {
-    private BudgetLogic budgetLogic;
+    private GeminiService geminiService;
+    private OpenRouterService openRouterService;
+    private SummarizerService summarizerService;
     private JTextArea questionArea;
     private JTextArea responseArea;
+    private JLabel statusLabel;
     private Main mainFrame;
+    private JSONObject currentContext;
+    private boolean useOpenRouter = false;
     
     // Theme colors
     private static final Color BACKGROUND_COLOR = new Color(30, 30, 30);
@@ -19,21 +30,53 @@ public class AiPanel extends JPanel implements Refreshable {
     
     public AiPanel(Main mainFrame) {
         this.mainFrame = mainFrame;
-        budgetLogic = new BudgetLogic();
+        
+        // Initialize AI services
+        geminiService = new GeminiService();
+        summarizerService = new SummarizerService();
+        
+        // Check if we should use OpenRouter
+        String apiKey = getApiKeyFromConfig();
+        if (apiKey != null && apiKey.startsWith("sk-or-v1-")) {
+            useOpenRouter = true;
+            // Use a more reliable free model
+            openRouterService = new OpenRouterService(apiKey, "meta-llama/llama-3.2-3b-instruct:free");
+        }
         
         setBackground(BACKGROUND_COLOR);
         setLayout(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         
         initComponents();
+        refreshContext(); // Load initial context
     }
     
     private void initComponents() {
-        // Header
-        JLabel headerLabel = new JLabel("🤖 AI Financial Advisor");
-        headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        // Header panel with refresh button
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(BACKGROUND_COLOR);
+        
+        JLabel headerLabel = new JLabel("FinSight AI — Personal Finance Advisor");
+        headerLabel.setFont(new Font("SansSerif", Font.BOLD, 24));
         headerLabel.setForeground(TEXT_COLOR);
-        add(headerLabel, BorderLayout.NORTH);
+        headerPanel.add(headerLabel, BorderLayout.WEST);
+        
+        // Status label
+        statusLabel = new JLabel("");
+        statusLabel.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        statusLabel.setForeground(new Color(255, 193, 7));
+        JPanel statusPanel = new JPanel(new BorderLayout());
+        statusPanel.setBackground(BACKGROUND_COLOR);
+        statusPanel.add(statusLabel, BorderLayout.CENTER);
+        headerPanel.add(statusPanel, BorderLayout.CENTER);
+        
+        // Refresh context button
+        JButton refreshBtn = createStyledButton("🔄 Refresh Context");
+        refreshBtn.setBackground(new Color(33, 150, 243));
+        refreshBtn.addActionListener(e -> refreshContext());
+        headerPanel.add(refreshBtn, BorderLayout.EAST);
+        
+        add(headerPanel, BorderLayout.NORTH);
         
         // Main content
         JPanel mainPanel = new JPanel(new GridBagLayout());
@@ -57,9 +100,6 @@ public class AiPanel extends JPanel implements Refreshable {
         mainPanel.add(responsePanel, gbc);
         
         add(mainPanel, BorderLayout.CENTER);
-        
-        // Show initial recommendations
-        showPersonalizedRecommendations();
     }
     
     private JPanel createQuestionPanel() {
@@ -71,8 +111,8 @@ public class AiPanel extends JPanel implements Refreshable {
         ));
         
         // Title
-        JLabel titleLabel = new JLabel("💬 Ask Your AI Financial Advisor");
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        JLabel titleLabel = new JLabel("💬 Ask Your Financial Question");
+        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         titleLabel.setForeground(TEXT_COLOR);
         panel.add(titleLabel, BorderLayout.NORTH);
         
@@ -80,11 +120,11 @@ public class AiPanel extends JPanel implements Refreshable {
         questionArea = new JTextArea(3, 0);
         questionArea.setBackground(PANEL_COLOR.brighter());
         questionArea.setForeground(TEXT_COLOR);
-        questionArea.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        questionArea.setFont(new Font("SansSerif", Font.PLAIN, 14));
         questionArea.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         questionArea.setLineWrap(true);
         questionArea.setWrapStyleWord(true);
-        questionArea.setText("How can I improve my spending habits?");
+        questionArea.setText("Am I over budget this month?");
         
         JScrollPane questionScroll = new JScrollPane(questionArea);
         questionScroll.setBorder(BorderFactory.createLineBorder(BORDER_COLOR));
@@ -98,7 +138,7 @@ public class AiPanel extends JPanel implements Refreshable {
         // Ask button
         JButton askButton = createStyledButton("🔮 Ask AI");
         askButton.setPreferredSize(new Dimension(120, 45));
-        askButton.addActionListener(e -> generateAIResponse());
+        askButton.addActionListener(e -> askAI());
         JPanel askButtonPanel = new JPanel(new BorderLayout());
         askButtonPanel.setBackground(PANEL_COLOR);
         askButtonPanel.add(askButton, BorderLayout.NORTH);
@@ -118,8 +158,8 @@ public class AiPanel extends JPanel implements Refreshable {
         ));
         
         // Title
-        JLabel titleLabel = new JLabel("🎯 AI Recommendations");
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        JLabel titleLabel = new JLabel("🎯 AI Response");
+        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         titleLabel.setForeground(TEXT_COLOR);
         panel.add(titleLabel, BorderLayout.NORTH);
         
@@ -127,11 +167,12 @@ public class AiPanel extends JPanel implements Refreshable {
         responseArea = new JTextArea();
         responseArea.setBackground(BACKGROUND_COLOR);
         responseArea.setForeground(TEXT_COLOR);
-        responseArea.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        responseArea.setFont(new Font("SansSerif", Font.PLAIN, 14));
         responseArea.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         responseArea.setLineWrap(true);
         responseArea.setWrapStyleWord(true);
         responseArea.setEditable(false);
+        responseArea.setText("Click 'Refresh Context' and then ask a question to get started!");
         
         JScrollPane responseScroll = new JScrollPane(responseArea);
         responseScroll.setBorder(BorderFactory.createLineBorder(BORDER_COLOR));
@@ -147,118 +188,174 @@ public class AiPanel extends JPanel implements Refreshable {
         return panel;
     }
     
+    private void refreshContext() {
+        // WHY: Load latest financial data for AI context
+        // Reload Gemini config in case API key was just added
+        geminiService.reloadConfig();
+        
+        // Re-check which service to use
+        String apiKey = getApiKeyFromConfig();
+        if (apiKey != null && apiKey.startsWith("sk-or-v1-")) {
+            useOpenRouter = true;
+            if (openRouterService == null) {
+                // Use a more reliable free model
+                openRouterService = new OpenRouterService(apiKey, "meta-llama/llama-3.2-3b-instruct:free");
+            }
+        }
+        
+        currentContext = summarizerService.summarizeUserData();
+        
+        boolean isEnabled = useOpenRouter ? 
+            (openRouterService != null && openRouterService.isEnabled()) : 
+            geminiService.isEnabled();
+        
+        if (isEnabled) {
+            String provider = useOpenRouter ? "OpenRouter (LLaMA 3.2)" : "Gemini Direct";
+            statusLabel.setText("✅ AI Ready via " + provider + " | Key: " + maskApiKey(apiKey));
+            statusLabel.setForeground(ACCENT_COLOR);
+        } else {
+            statusLabel.setText("⚠️ Configure API key in Settings");
+            statusLabel.setForeground(new Color(255, 193, 7));
+        }
+        
+        responseArea.setText("Financial data refreshed! AI now has access to your latest information.\n\n" +
+            "Ask a question like:\n" +
+            "• Am I over budget this month?\n" +
+            "• How can I save more money?\n" +
+            "• What are my biggest expenses?\n" +
+            "• Give me spending insights");
+    }
+    
+    private void askAI() {
+        String question = questionArea.getText().trim();
+        if (question.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please enter a question.",
+                "Empty Question", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        if (currentContext == null) {
+            refreshContext();
+        }
+        
+        // Check if AI is configured
+        boolean isConfigured = useOpenRouter ? 
+            (openRouterService != null && openRouterService.isEnabled()) : 
+            geminiService.isEnabled();
+            
+        if (!isConfigured) {
+            responseArea.setText("⚠️ AI service not configured.\n\n" +
+                "To configure:\n" +
+                "1. Go to Settings\n" +
+                "2. Enter your API Key\n" +
+                "3. Select AI Provider\n" +
+                "4. Click Save\n" +
+                "5. Come back here and click 'Refresh Context'\n\n" +
+                "Get API keys at:\n" +
+                "• Gemini: https://makersuite.google.com/app/apikey\n" +
+                "• OpenRouter: https://openrouter.ai/keys");
+            return;
+        }
+        
+        // Show loading state
+        String providerName = useOpenRouter ? "OpenRouter (LLaMA 3.2)" : "Gemini";
+        responseArea.setText("🤔 Thinking... (Contacting " + providerName + " AI)");
+        statusLabel.setText("🔄 Processing...");
+        statusLabel.setForeground(new Color(33, 150, 243));
+        
+        // Ask AI in background thread to avoid freezing UI
+        new Thread(() -> {
+            try {
+                String aiResponse;
+                if (useOpenRouter) {
+                    aiResponse = openRouterService.ask(question, currentContext);
+                } else {
+                    aiResponse = geminiService.askGemini(question, currentContext);
+                }
+                
+                // Update UI on EDT
+                SwingUtilities.invokeLater(() -> {
+                    responseArea.setText(aiResponse);
+                    responseArea.setCaretPosition(0);
+                    statusLabel.setText("✅ Response received");
+                    statusLabel.setForeground(ACCENT_COLOR);
+                });
+                
+            } catch (Exception ex) {
+                SwingUtilities.invokeLater(() -> {
+                    responseArea.setText("❌ Error: " + ex.getMessage() + "\n\n" +
+                        "Please check:\n" +
+                        "1. Your internet connection\n" +
+                        "2. Your API key is valid\n" +
+                        "3. You haven't exceeded rate limits\n\n" +
+                        "Error details: " + ex.toString());
+                    statusLabel.setText("❌ Error occurred");
+                    statusLabel.setForeground(new Color(220, 53, 69));
+                });
+                ex.printStackTrace();
+            }
+        }).start();
+    }
+    
     private JButton createStyledButton(String text) {
         JButton button = new JButton(text);
-        button.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        button.setFont(new Font("SansSerif", Font.PLAIN, 14));
         button.setForeground(TEXT_COLOR);
         button.setBackground(ACCENT_COLOR);
         button.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
         button.setFocusPainted(false);
         
         button.addMouseListener(new java.awt.event.MouseAdapter() {
+            Color originalColor = button.getBackground();
+            
             @Override
             public void mouseEntered(java.awt.event.MouseEvent e) {
-                button.setBackground(ACCENT_COLOR.brighter());
+                button.setBackground(originalColor.brighter());
             }
             
             @Override
             public void mouseExited(java.awt.event.MouseEvent e) {
-                button.setBackground(ACCENT_COLOR);
+                button.setBackground(originalColor);
             }
         });
         
         return button;
     }
     
-    private void generateAIResponse() {
-        String question = questionArea.getText().trim().toLowerCase();
-        String response;
-        
-        // Simple AI responses based on keywords
-        if (question.contains("save") || question.contains("saving")) {
-            response = """
-                💡 SAVING STRATEGIES:
-                
-                • Set up automatic transfers to savings account
-                • Follow the 50/30/20 rule (needs/wants/savings)
-                • Use the envelope method for discretionary spending
-                • Try the 52-week savings challenge
-                • Consider high-yield savings accounts for better returns
-                
-                🎯 Start small with just $25/week and gradually increase!
-                """;
-        } else if (question.contains("budget") || question.contains("spending")) {
-            String[] recommendations = budgetLogic.generateAIRecommendations();
-            response = "🎯 PERSONALIZED BUDGET ADVICE:\\n\\n" +
-                      "• " + recommendations[0] + "\\n\\n" +
-                      "• " + recommendations[1] + "\\n\\n" +
-                      "• " + recommendations[2] + "\\n\\n" +
-                      "💡 Remember: Small consistent changes lead to big results!";
-        } else if (question.contains("debt") || question.contains("loan")) {
-            response = """
-                📉 DEBT MANAGEMENT TIPS:
-                
-                • List all debts by interest rate (highest first)
-                • Use the avalanche method: pay minimums on all, extra on highest rate
-                • Consider debt consolidation if it reduces overall interest
-                • Avoid taking new debt while paying off existing debt
-                • Negotiate with creditors for better payment terms
-                
-                🚀 Focus on one debt at a time for maximum impact!
-                """;
-        } else if (question.contains("invest") || question.contains("investment")) {
-            response = """
-                📈 INVESTMENT GUIDANCE:
-                
-                • Start with an emergency fund (3-6 months expenses)
-                • Consider low-cost index funds for beginners
-                • Diversify across different asset classes
-                • Invest regularly regardless of market conditions (dollar-cost averaging)
-                • Don't invest money you'll need within 5 years
-                
-                ⚠️ Always do your research and consider consulting a financial advisor!
-                """;
-        } else {
-            // Default personalized response
-            String[] recommendations = budgetLogic.generateAIRecommendations();
-            response = "🤖 PERSONALIZED FINANCIAL ADVICE:\\n\\n" +
-                      recommendations[0] + "\\n\\n" +
-                      recommendations[1] + "\\n\\n" +
-                      recommendations[2] + "\\n\\n" +
-                      "💼 Based on your current spending patterns and budget status.\\n\\n" +
-                      "💡 Tip: Ask me specific questions about saving, budgeting, debt, or investing!";
-        }
-        
-        responseArea.setText(response);
-        responseArea.setCaretPosition(0); // Scroll to top
-    }
-    
-    private void showPersonalizedRecommendations() {
-        String[] recommendations = budgetLogic.generateAIRecommendations();
-        String initialResponse = """
-            🎉 WELCOME TO YOUR AI FINANCIAL ADVISOR!
-            
-            Based on your current financial data, here are my recommendations:
-            
-            """ + 
-            "• " + recommendations[0] + "\n\n" +
-            "• " + recommendations[1] + "\n\n" +
-            "• " + recommendations[2] + "\n\n" +
-            """
-            🤖 Ask me anything about:
-            • Budgeting and saving strategies
-            • Debt management
-            • Investment advice
-            • Spending optimization
-            
-            Type your question above and click 'Ask AI'!
-            """;
-        
-        responseArea.setText(initialResponse);
-    }
-    
     @Override
     public void refreshData() {
-        showPersonalizedRecommendations();
+        refreshContext();
+    }
+    
+    /**
+     * Mask API key for display (show only last 4 chars)
+     */
+    private String maskApiKey(String apiKey) {
+        if (apiKey == null || apiKey.isEmpty()) {
+            return "Not Set";
+        }
+        if (apiKey.length() <= 4) {
+            return "****";
+        }
+        return "****" + apiKey.substring(apiKey.length() - 4);
+    }
+    
+    /**
+     * Get API key from config for display purposes
+     */
+    private String getApiKeyFromConfig() {
+        try {
+            java.util.Properties props = new java.util.Properties();
+            java.io.File configFile = new java.io.File("config.properties");
+            if (configFile.exists()) {
+                try (java.io.FileInputStream fis = new java.io.FileInputStream(configFile)) {
+                    props.load(fis);
+                    return props.getProperty("gemini_api_key", "");
+                }
+            }
+        } catch (Exception e) {
+            // Ignore
+        }
+        return "";
     }
 }

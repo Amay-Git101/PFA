@@ -50,7 +50,7 @@ public class DashboardPanel extends JPanel implements TransactionListener, Refre
     private void initComponents() {
         // Header
         JLabel headerLabel = new JLabel("📊 Dashboard");
-        headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        headerLabel.setFont(new Font("SansSerif", Font.BOLD, 28));
         headerLabel.setForeground(TEXT_COLOR);
         headerLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
         add(headerLabel, BorderLayout.NORTH);
@@ -147,12 +147,12 @@ public class DashboardPanel extends JPanel implements TransactionListener, Refre
         ));
         
         JLabel titleLabel = new JLabel(title);
-        titleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        titleLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
         titleLabel.setForeground(TEXT_COLOR.brighter());
         titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         
         JLabel valueLabel = new JLabel(value);
-        valueLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        valueLabel.setFont(new Font("SansSerif", Font.BOLD, 20));
         valueLabel.setForeground(accentColor);
         valueLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         valueLabel.setName("valueLabel"); // Name it for easy identification
@@ -199,13 +199,19 @@ public class DashboardPanel extends JPanel implements TransactionListener, Refre
         JTable table = new JTable(tableModel);
         table.setBackground(PANEL_COLOR);
         table.setForeground(TEXT_COLOR);
-        table.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        table.setRowHeight(25);
+        table.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        table.setRowHeight(28);
         table.setShowGrid(true);
         table.setGridColor(BORDER_COLOR);
         table.getTableHeader().setBackground(BACKGROUND_COLOR);
         table.getTableHeader().setForeground(TEXT_COLOR);
-        table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
+        table.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
+        
+        // Add hover cursor
+        table.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        
+        // WHY: Apply row striping for better readability
+        table.setDefaultRenderer(Object.class, new StripedRowRenderer());
         
         // Set column widths
         table.getColumnModel().getColumn(0).setPreferredWidth(80);
@@ -316,5 +322,34 @@ public class DashboardPanel extends JPanel implements TransactionListener, Refre
     @Override
     public void refreshData() {
         loadData();
+    }
+    
+    /**
+     * Custom renderer for row striping
+     * WHY: Alternating row colors improve table readability
+     */
+    private class StripedRowRenderer extends javax.swing.table.DefaultTableCellRenderer {
+        @Override
+        public java.awt.Component getTableCellRendererComponent(JTable table, Object value,
+                boolean isSelected, boolean hasFocus, int row, int column) {
+            java.awt.Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+            
+            if (!isSelected) {
+                if (row % 2 == 0) {
+                    c.setBackground(PANEL_COLOR);
+                } else {
+                    c.setBackground(PANEL_COLOR.brighter());
+                }
+            }
+            
+            // Right-align amount column (column 3)
+            if (column == 3) {
+                ((javax.swing.JLabel) c).setHorizontalAlignment(javax.swing.JLabel.RIGHT);
+            } else {
+                ((javax.swing.JLabel) c).setHorizontalAlignment(javax.swing.JLabel.LEFT);
+            }
+            
+            return c;
+        }
     }
 }

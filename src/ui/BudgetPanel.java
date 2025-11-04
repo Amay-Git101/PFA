@@ -53,7 +53,7 @@ public class BudgetPanel extends JPanel implements Refreshable {
     private void initComponents() {
         // Header
         JLabel headerLabel = new JLabel("📊 Budget Planner");
-        headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        headerLabel.setFont(new Font("SansSerif", Font.BOLD, 28));
         headerLabel.setForeground(TEXT_COLOR);
         add(headerLabel, BorderLayout.NORTH);
         

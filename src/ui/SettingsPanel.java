@@ -8,12 +8,15 @@ import java.io.File;
 import database.AppSettingsDAO;
 import events.TransactionEventManager;
 import backend.DataExportImport;
+import service.GeminiService;
 
 public class SettingsPanel extends JPanel {
     private AppSettingsDAO settingsDAO;
     private DataExportImport dataExportImport;
     private JTextField nameField;
     private JComboBox<String> currencyComboBox;
+    private JTextField apiKeyField;
+    private JComboBox<String> llmProviderComboBox;
     private Main mainFrame;
     
     // Theme colors
@@ -39,7 +42,7 @@ public class SettingsPanel extends JPanel {
     private void initComponents() {
         // Header
         JLabel headerLabel = new JLabel("⚙️ Settings");
-        headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        headerLabel.setFont(new Font("SansSerif", Font.BOLD, 28));
         headerLabel.setForeground(TEXT_COLOR);
         add(headerLabel, BorderLayout.NORTH);
         
@@ -87,7 +90,7 @@ public class SettingsPanel extends JPanel {
         
         // Title
         JLabel titleLabel = new JLabel("User Preferences");
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 18));
         titleLabel.setForeground(TEXT_COLOR);
         gbc.gridx = 0; gbc.gridy = 0;
         gbc.gridwidth = 2;
@@ -122,11 +125,47 @@ public class SettingsPanel extends JPanel {
         gbc.gridx = 1; gbc.gridy = 2;
         panel.add(currencyComboBox, gbc);
         
+        // LLM Provider selection
+        gbc.gridx = 0; gbc.gridy = 3;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.weightx = 0;
+        panel.add(createLabel("AI Provider:"), gbc);
+        
+        llmProviderComboBox = new JComboBox<>(new String[]{
+            "Gemini", "OpenAI", "Claude", "Mock (Testing)"
+        });
+        styleComboBox(llmProviderComboBox);
+        llmProviderComboBox.setPreferredSize(new Dimension(150, 30));
+        gbc.gridx = 1; gbc.gridy = 3;
+        panel.add(llmProviderComboBox, gbc);
+        
+        // Gemini API Key field
+        gbc.gridx = 0; gbc.gridy = 4;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.weightx = 0;
+        panel.add(createLabel("API Key:"), gbc);
+        
+        apiKeyField = createTextField();
+        apiKeyField.setPreferredSize(new Dimension(250, 30));
+        gbc.gridx = 1; gbc.gridy = 4;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.weightx = 1.0;
+        panel.add(apiKeyField, gbc);
+        
+        // Info label for API key
+        JLabel apiInfoLabel = new JLabel("<html><i style='font-size: 10px; color: #888;'>Get your Gemini key from: https://makersuite.google.com/app/apikey</i></html>");
+        gbc.gridx = 1; gbc.gridy = 5;
+        gbc.insets = new Insets(0, 10, 10, 10);
+        panel.add(apiInfoLabel, gbc);
+        
+        // Reset insets for save button
+        gbc.insets = new Insets(10, 10, 10, 10);
+        
         // Save button
         JButton saveButton = createStyledButton("💾 Save Settings");
         saveButton.setPreferredSize(new Dimension(180, 40));
         saveButton.addActionListener(e -> saveSettings());
-        gbc.gridx = 0; gbc.gridy = 3;
+        gbc.gridx = 0; gbc.gridy = 6;
         gbc.gridwidth = 2;
         gbc.fill = GridBagConstraints.NONE;
         gbc.anchor = GridBagConstraints.CENTER;
@@ -149,7 +188,7 @@ public class SettingsPanel extends JPanel {
         
         // Title
         JLabel titleLabel = new JLabel("Data Management");
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 18));
         titleLabel.setForeground(TEXT_COLOR);
         gbc.gridx = 0; gbc.gridy = 0;
         gbc.gridwidth = 2;
@@ -217,8 +256,8 @@ public class SettingsPanel extends JPanel {
         gbc.insets = new Insets(10, 10, 10, 10);
         
         // Title
-        JLabel titleLabel = new JLabel("About Personal Finance Advisor");
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        JLabel titleLabel = new JLabel("About FinSight");
+        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 18));
         titleLabel.setForeground(TEXT_COLOR);
         gbc.gridx = 0; gbc.gridy = 0;
         gbc.anchor = GridBagConstraints.CENTER;
@@ -331,25 +370,56 @@ public class SettingsPanel extends JPanel {
             currencyCode = "INR";
         }
         
+        // Get API key and LLM provider
+        String apiKey = apiKeyField.getText().trim();
+        String llmProvider = (String) llmProviderComboBox.getSelectedItem();
+        
         // Save to database and SettingsManager
         settingsDAO.setSetting("user_name", name);
         SettingsManager.setCurrency(currencyCode);
         
+        // Save AI settings to database
+        if (!apiKey.isEmpty()) {
+            settingsDAO.setSetting("gemini_api_key", apiKey);
+            
+            // Also save to config.properties for GeminiService
+            if ("Gemini".equals(llmProvider)) {
+                if (GeminiService.saveApiKey(apiKey)) {
+                    System.out.println("Gemini API key saved to config.properties");
+                } else {
+                    JOptionPane.showMessageDialog(this, 
+                        "Warning: Failed to save API key to config file.\nPlease check file permissions.",
+                        "Config Save Warning", JOptionPane.WARNING_MESSAGE);
+                }
+            }
+        }
+        settingsDAO.setSetting("llm_provider", llmProvider);
+        
         JOptionPane.showMessageDialog(this, 
-            "Settings saved successfully!\nCurrency: " + currencyDisplay,
+            "Settings saved successfully!\nCurrency: " + currencyDisplay + "\nAI Provider: " + llmProvider,
             "Settings Saved", JOptionPane.INFORMATION_MESSAGE);
         
-        // Refresh all panels to show new currency
+        // Refresh all panels to show new currency and reload AI config
         if (mainFrame != null) {
             mainFrame.refreshAllPanels();
+            
+            // Notify user to refresh AI panel if API key was set
+            if (!apiKey.isEmpty() && "Gemini".equals(llmProvider)) {
+                JOptionPane.showMessageDialog(this, 
+                    "✅ Gemini API key configured!\n\nGo to the AI Advisor panel and click 'Refresh Context' to start using AI features.",
+                    "AI Ready", JOptionPane.INFORMATION_MESSAGE);
+            }
         }
     }
     
     private void loadSettings() {
         String savedName = settingsDAO.getSetting("user_name", "User");
         String currencyCode = SettingsManager.getCurrencyCode();
+        String apiKey = settingsDAO.getSetting("gemini_api_key", "");
+        String llmProvider = settingsDAO.getSetting("llm_provider", "Gemini");
         
         nameField.setText(savedName);
+        apiKeyField.setText(apiKey);
         
         // Select the correct currency in dropdown
         switch (currencyCode) {
@@ -368,6 +438,9 @@ public class SettingsPanel extends JPanel {
             default:
                 currencyComboBox.setSelectedItem("INR (₹)");
         }
+        
+        // Select the correct LLM provider
+        llmProviderComboBox.setSelectedItem(llmProvider);
     }
     
     private void clearAllTransactions() {

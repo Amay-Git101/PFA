@@ -26,7 +26,7 @@ public class Main extends JFrame {
     public static final Color BORDER_COLOR = new Color(60, 60, 60);
     
     public Main() {
-        setTitle("Personal Finance Advisor");
+        setTitle("FinSight — Personal Finance Advisor");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1200, 800);
         setLocationRelativeTo(null);
@@ -93,6 +93,9 @@ public class Main extends JFrame {
         }
         
         // Customize UI components with explicit colors
+        UIManager.put("Label.font", new Font("SansSerif", Font.PLAIN, 14));
+        UIManager.put("Button.font", new Font("SansSerif", Font.BOLD, 13));
+        
         UIManager.put("Panel.background", BACKGROUND_COLOR);
         UIManager.put("Panel.foreground", TEXT_COLOR);
         
@@ -146,9 +149,9 @@ public class Main extends JFrame {
         sidebar.setBorder(BorderFactory.createEmptyBorder(20, 15, 20, 15));
         
         // Add title
-        JLabel titleLabel = new JLabel("Finance Advisor");
+        JLabel titleLabel = new JLabel("FinSight");
         titleLabel.setForeground(ACCENT_COLOR);
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 20));
         titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         sidebar.add(titleLabel);
         sidebar.add(Box.createVerticalStrut(30));
@@ -176,7 +179,7 @@ public class Main extends JFrame {
     
     private JButton createSidebarButton(String text, String panelName) {
         JButton button = new JButton(text);
-        button.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        button.setFont(new Font("SansSerif", Font.PLAIN, 13));
         button.setForeground(TEXT_COLOR);
         button.setBackground(PANEL_COLOR);
         button.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));

@@ -53,7 +53,7 @@ public class ExpensePanel extends JPanel implements TransactionListener, Refresh
     private void initComponents() {
         // Header
         JLabel headerLabel = new JLabel("💰 Expense Tracker");
-        headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        headerLabel.setFont(new Font("SansSerif", Font.BOLD, 28));
         headerLabel.setForeground(TEXT_COLOR);
         add(headerLabel, BorderLayout.NORTH);
         
@@ -236,14 +236,20 @@ public class ExpensePanel extends JPanel implements TransactionListener, Refresh
         transactionTable.setBackground(PANEL_COLOR);
         transactionTable.setForeground(TEXT_COLOR);
         transactionTable.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        transactionTable.setRowHeight(25);
+        transactionTable.setRowHeight(28);
         transactionTable.setShowGrid(true);
         transactionTable.setGridColor(BORDER_COLOR);
         transactionTable.setSelectionBackground(ACCENT_COLOR.darker());
         transactionTable.setSelectionForeground(TEXT_COLOR);
         transactionTable.getTableHeader().setBackground(BACKGROUND_COLOR);
         transactionTable.getTableHeader().setForeground(TEXT_COLOR);
-        transactionTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
+        transactionTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
+        
+        // Add hover cursor
+        transactionTable.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        
+        // WHY: Apply row striping and custom renderers for better readability
+        transactionTable.setDefaultRenderer(Object.class, new StripedRowRenderer());
         
         // Hide ID column
         transactionTable.getColumnModel().getColumn(0).setMinWidth(0);
@@ -467,5 +473,34 @@ public class ExpensePanel extends JPanel implements TransactionListener, Refresh
     @Override
     public void refreshData() {
         loadTransactions();
+    }
+    
+    /**
+     * Custom renderer for row striping
+     * WHY: Alternating row colors improve table readability
+     */
+    private class StripedRowRenderer extends javax.swing.table.DefaultTableCellRenderer {
+        @Override
+        public java.awt.Component getTableCellRendererComponent(JTable table, Object value,
+                boolean isSelected, boolean hasFocus, int row, int column) {
+            java.awt.Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+            
+            if (!isSelected) {
+                if (row % 2 == 0) {
+                    c.setBackground(PANEL_COLOR);
+                } else {
+                    c.setBackground(PANEL_COLOR.brighter());
+                }
+            }
+            
+            // Right-align amount column (column 4)
+            if (column == 4) {
+                ((javax.swing.JLabel) c).setHorizontalAlignment(javax.swing.JLabel.RIGHT);
+            } else {
+                ((javax.swing.JLabel) c).setHorizontalAlignment(javax.swing.JLabel.LEFT);
+            }
+            
+            return c;
+        }
     }
 }
