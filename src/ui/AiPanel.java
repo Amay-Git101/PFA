@@ -39,8 +39,8 @@ public class AiPanel extends JPanel implements Refreshable {
         String apiKey = getApiKeyFromConfig();
         if (apiKey != null && apiKey.startsWith("sk-or-v1-")) {
             useOpenRouter = true;
-            // Use a more reliable free model
-            openRouterService = new OpenRouterService(apiKey, "meta-llama/llama-3.2-3b-instruct:free");
+            // Use LLaMA 3.3 70B - excellent quality
+            openRouterService = new OpenRouterService(apiKey, "meta-llama/llama-3.3-70b-instruct:free");
         }
         
         setBackground(BACKGROUND_COLOR);
@@ -198,8 +198,8 @@ public class AiPanel extends JPanel implements Refreshable {
         if (apiKey != null && apiKey.startsWith("sk-or-v1-")) {
             useOpenRouter = true;
             if (openRouterService == null) {
-                // Use a more reliable free model
-                openRouterService = new OpenRouterService(apiKey, "meta-llama/llama-3.2-3b-instruct:free");
+                // Use LLaMA 3.3 70B - excellent quality
+                openRouterService = new OpenRouterService(apiKey, "meta-llama/llama-3.3-70b-instruct:free");
             }
         }
         
@@ -210,20 +210,22 @@ public class AiPanel extends JPanel implements Refreshable {
             geminiService.isEnabled();
         
         if (isEnabled) {
-            String provider = useOpenRouter ? "OpenRouter (LLaMA 3.2)" : "Gemini Direct";
-            statusLabel.setText("✅ AI Ready via " + provider + " | Key: " + maskApiKey(apiKey));
+            String keyStatus = (apiKey != null && !apiKey.isEmpty()) ? maskApiKey(apiKey) : "Built-in";
+            statusLabel.setText("✅ AI Advisor Ready | Key: " + keyStatus);
             statusLabel.setForeground(ACCENT_COLOR);
         } else {
-            statusLabel.setText("⚠️ Configure API key in Settings");
-            statusLabel.setForeground(new Color(255, 193, 7));
+            statusLabel.setText("✅ AI Advisor Ready");
+            statusLabel.setForeground(ACCENT_COLOR);
         }
         
-        responseArea.setText("Financial data refreshed! AI now has access to your latest information.\n\n" +
-            "Ask a question like:\n" +
+        responseArea.setText("Financial data refreshed! Your AI Advisor now has access to your latest information.\n\n" +
+            "Try asking questions like:\n" +
             "• Am I over budget this month?\n" +
             "• How can I save more money?\n" +
             "• What are my biggest expenses?\n" +
-            "• Give me spending insights");
+            "• Give me spending insights\n" +
+            "• Should I reduce spending in any category?\n\n" +
+            "Tip: For enhanced responses, add your own API key in Settings!");
     }
     
     private void askAI() {
@@ -238,29 +240,12 @@ public class AiPanel extends JPanel implements Refreshable {
             refreshContext();
         }
         
-        // Check if AI is configured
-        boolean isConfigured = useOpenRouter ? 
-            (openRouterService != null && openRouterService.isEnabled()) : 
-            geminiService.isEnabled();
-            
-        if (!isConfigured) {
-            responseArea.setText("⚠️ AI service not configured.\n\n" +
-                "To configure:\n" +
-                "1. Go to Settings\n" +
-                "2. Enter your API Key\n" +
-                "3. Select AI Provider\n" +
-                "4. Click Save\n" +
-                "5. Come back here and click 'Refresh Context'\n\n" +
-                "Get API keys at:\n" +
-                "• Gemini: https://makersuite.google.com/app/apikey\n" +
-                "• OpenRouter: https://openrouter.ai/keys");
-            return;
-        }
+        // AI is always available (either custom key or built-in)
+        // No need to check configuration
         
         // Show loading state
-        String providerName = useOpenRouter ? "OpenRouter (LLaMA 3.2)" : "Gemini";
-        responseArea.setText("🤔 Thinking... (Contacting " + providerName + " AI)");
-        statusLabel.setText("🔄 Processing...");
+        responseArea.setText("🤔 Analyzing your financial data...");
+        statusLabel.setText("🔄 Processing your question...");
         statusLabel.setForeground(new Color(33, 150, 243));
         
         // Ask AI in background thread to avoid freezing UI

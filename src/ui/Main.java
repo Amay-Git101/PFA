@@ -148,13 +148,14 @@ public class Main extends JFrame {
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
         sidebar.setBorder(BorderFactory.createEmptyBorder(20, 15, 20, 15));
         
-        // Add title
-        JLabel titleLabel = new JLabel("FinSight");
+        // Add title - dynamically sized to fit
+        JLabel titleLabel = new JLabel("<html><div style='text-align: center;'>FinSight<br/><span style='font-size: 10px; color: #888;'>Finance Advisor</span></div></html>");
         titleLabel.setForeground(ACCENT_COLOR);
-        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 20));
+        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 18));
         titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
         sidebar.add(titleLabel);
-        sidebar.add(Box.createVerticalStrut(30));
+        sidebar.add(Box.createVerticalStrut(20));
         
         // Create navigation buttons
         String[] menuItems = {"Dashboard", "AI Advisor", "Investment Management", "Expenses", "Budget", "Reports", "Settings"};

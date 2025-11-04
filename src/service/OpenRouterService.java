@@ -30,7 +30,8 @@ public class OpenRouterService {
     
     public OpenRouterService(String apiKey, String model) {
         this.apiKey = apiKey;
-        this.model = model != null ? model : "google/gemini-2.0-flash-exp:free";
+        // Use LLaMA 3.3 70B - excellent quality free model
+        this.model = model != null ? model : "meta-llama/llama-3.3-70b-instruct:free";
     }
     
     public boolean isEnabled() {
@@ -79,8 +80,8 @@ public class OpenRouterService {
         conn.setRequestProperty("HTTP-Referer", "http://localhost");
         conn.setRequestProperty("X-Title", "FinSight Personal Finance Advisor");
         conn.setDoOutput(true);
-        conn.setConnectTimeout(10000);
-        conn.setReadTimeout(30000);
+        conn.setConnectTimeout(15000);  // 15 seconds to connect
+        conn.setReadTimeout(60000);     // 60 seconds to read response
         
         // Send request
         try (OutputStream os = conn.getOutputStream()) {
@@ -116,6 +117,8 @@ public class OpenRouterService {
     
     private String parseResponse(String jsonResponse) {
         try {
+            System.out.println("Parsing response: " + jsonResponse.substring(0, Math.min(200, jsonResponse.length())));
+            
             JSONObject root = new JSONObject(jsonResponse);
             
             if (root.has("choices")) {
@@ -125,16 +128,27 @@ public class OpenRouterService {
                     if (choice.has("message")) {
                         JSONObject message = choice.getJSONObject("message");
                         if (message.has("content")) {
-                            return message.getString("content");
+                            String content = message.getString("content");
+                            if (content == null || content.trim().isEmpty()) {
+                                return "AI returned an empty response. Please try rephrasing your question.";
+                            }
+                            return content.trim();
                         }
                     }
                 }
             }
             
-            return "Unable to parse AI response. Raw: " + jsonResponse;
+            // Check for errors in response
+            if (root.has("error")) {
+                JSONObject error = root.getJSONObject("error");
+                return "AI Error: " + error.optString("message", "Unknown error");
+            }
+            
+            return "Unable to parse AI response. The model may not have returned a valid answer. Please try again.";
             
         } catch (Exception e) {
-            return "Error parsing response: " + e.getMessage();
+            e.printStackTrace();
+            return "Error parsing AI response: " + e.getMessage() + "\nPlease try again or rephrase your question.";
         }
     }
 }

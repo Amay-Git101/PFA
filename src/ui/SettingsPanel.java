@@ -16,7 +16,6 @@ public class SettingsPanel extends JPanel {
     private JTextField nameField;
     private JComboBox<String> currencyComboBox;
     private JTextField apiKeyField;
-    private JComboBox<String> llmProviderComboBox;
     private Main mainFrame;
     
     // Theme colors
@@ -125,36 +124,22 @@ public class SettingsPanel extends JPanel {
         gbc.gridx = 1; gbc.gridy = 2;
         panel.add(currencyComboBox, gbc);
         
-        // LLM Provider selection
+        // API Key field (optional)
         gbc.gridx = 0; gbc.gridy = 3;
         gbc.fill = GridBagConstraints.NONE;
         gbc.weightx = 0;
-        panel.add(createLabel("AI Provider:"), gbc);
-        
-        llmProviderComboBox = new JComboBox<>(new String[]{
-            "Gemini", "OpenAI", "Claude", "Mock (Testing)"
-        });
-        styleComboBox(llmProviderComboBox);
-        llmProviderComboBox.setPreferredSize(new Dimension(150, 30));
-        gbc.gridx = 1; gbc.gridy = 3;
-        panel.add(llmProviderComboBox, gbc);
-        
-        // Gemini API Key field
-        gbc.gridx = 0; gbc.gridy = 4;
-        gbc.fill = GridBagConstraints.NONE;
-        gbc.weightx = 0;
-        panel.add(createLabel("API Key:"), gbc);
+        panel.add(createLabel("AI API Key (Optional):"), gbc);
         
         apiKeyField = createTextField();
         apiKeyField.setPreferredSize(new Dimension(250, 30));
-        gbc.gridx = 1; gbc.gridy = 4;
+        gbc.gridx = 1; gbc.gridy = 3;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
         panel.add(apiKeyField, gbc);
         
         // Info label for API key
-        JLabel apiInfoLabel = new JLabel("<html><i style='font-size: 10px; color: #888;'>Get your Gemini key from: https://makersuite.google.com/app/apikey</i></html>");
-        gbc.gridx = 1; gbc.gridy = 5;
+        JLabel apiInfoLabel = new JLabel("<html><i style='font-size: 10px; color: #888;'>Optional: Add your own API key for enhanced AI features</i></html>");
+        gbc.gridx = 1; gbc.gridy = 4;
         gbc.insets = new Insets(0, 10, 10, 10);
         panel.add(apiInfoLabel, gbc);
         
@@ -165,7 +150,7 @@ public class SettingsPanel extends JPanel {
         JButton saveButton = createStyledButton("💾 Save Settings");
         saveButton.setPreferredSize(new Dimension(180, 40));
         saveButton.addActionListener(e -> saveSettings());
-        gbc.gridx = 0; gbc.gridy = 6;
+        gbc.gridx = 0; gbc.gridy = 5;
         gbc.gridwidth = 2;
         gbc.fill = GridBagConstraints.NONE;
         gbc.anchor = GridBagConstraints.CENTER;
@@ -229,13 +214,13 @@ public class SettingsPanel extends JPanel {
         gbc.insets = new Insets(10, 5, 10, 10);
         panel.add(importBtn, gbc);
         
-        // Info label
-        JLabel infoLabel = new JLabel("<html>⚠️ Warning: These actions cannot be undone!<br/>" +
-                                      "Clear Transactions: Removes all financial records but keeps settings.<br/>" +
-                                      "Reset All Data: Clears transactions and resets budget to defaults.</html>");
+        // Info label - Fixed to appear BELOW the buttons on row 3
+        JLabel infoLabel = new JLabel("<html><div style='text-align: center;'>⚠️ <b>Warning:</b> These actions cannot be undone!<br/>" +
+                                      "<i>Clear Transactions</i> removes all records but keeps settings.<br/>" +
+                                      "<i>Reset All Data</i> clears transactions and resets budget to defaults.</div></html>");
         infoLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         infoLabel.setForeground(new Color(255, 193, 7));
-        gbc.gridx = 0; gbc.gridy = 2;
+        gbc.gridx = 0; gbc.gridy = 3;  // Changed from gridy = 2 to gridy = 3
         gbc.gridwidth = 2;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(15, 10, 0, 10);
@@ -245,56 +230,62 @@ public class SettingsPanel extends JPanel {
     }
     
     private JPanel createAboutPanel() {
-        JPanel panel = new JPanel(new GridBagLayout());
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBackground(PANEL_COLOR);
         panel.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(BORDER_COLOR, 1, true),
             BorderFactory.createEmptyBorder(20, 20, 20, 20)
         ));
         
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 10, 10, 10);
-        
         // Title
-        JLabel titleLabel = new JLabel("About FinSight");
+        JLabel titleLabel = new JLabel("About FinSight", SwingConstants.CENTER);
         titleLabel.setFont(new Font("SansSerif", Font.BOLD, 18));
         titleLabel.setForeground(TEXT_COLOR);
-        gbc.gridx = 0; gbc.gridy = 0;
-        gbc.anchor = GridBagConstraints.CENTER;
-        panel.add(titleLabel, gbc);
+        panel.add(titleLabel, BorderLayout.NORTH);
         
-        // App info
-        String aboutText = """
-            <html>
-            <div style='text-align: center; color: white;'>
-            <h3 style='color: #00C897;'>💰 Personal Finance Advisor v1.0</h3>
-            <p>A comprehensive financial management tool built with Java Swing</p>
-            <br>
-            <p><b>Features:</b></p>
-            <p>• Transaction tracking and management</p>
-            <p>• Budget planning and monitoring</p>
-            <p>• AI-powered financial recommendations</p>
-            <p>• Intuitive dark theme interface</p>
-            <br>
-            <p><b>Technology Stack:</b></p>
-            <p>• Java Swing for UI</p>
-            <p>• SQLite for data storage</p>
-            <p>• Modern dark theme design</p>
-            <br>
-            <p style='font-size: 12px; color: #888888;'>
-            Built with ❤️ for better financial management
-            </p>
-            </div>
-            </html>
-            """;
+        // App info in a scrollable text area
+        JTextArea aboutText = new JTextArea();
+        aboutText.setEditable(false);
+        aboutText.setBackground(PANEL_COLOR);
+        aboutText.setForeground(TEXT_COLOR);
+        aboutText.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        aboutText.setLineWrap(true);
+        aboutText.setWrapStyleWord(true);
+        aboutText.setBorder(BorderFactory.createEmptyBorder(15, 10, 15, 10));
         
-        JLabel aboutLabel = new JLabel(aboutText);
-        aboutLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        gbc.gridx = 0; gbc.gridy = 1;
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.weightx = 1.0;
-        gbc.weighty = 1.0;
-        panel.add(aboutLabel, gbc);
+        String content = "\n\uD83D\uDCB0 FinSight \u2014 Personal Finance Advisor v1.0\n" +
+                        "\n" +
+                        "A comprehensive financial management application designed to help you\n" +
+                        "take control of your finances with ease and intelligence.\n" +
+                        "\n" +
+                        "\u2728 KEY FEATURES:\n" +
+                        "  \u2022 Dashboard with real-time financial overview\n" +
+                        "  \u2022 AI-powered financial advisor for personalized insights\n" +
+                        "  \u2022 Investment portfolio tracking and management\n" +
+                        "  \u2022 Smart expense categorization and tracking\n" +
+                        "  \u2022 Budget planning with visual progress indicators\n" +
+                        "  \u2022 Detailed financial reports and analytics\n" +
+                        "  \u2022 Data import/export (CSV format)\n" +
+                        "  \u2022 Secure local SQLite database\n" +
+                        "\n" +
+                        "\uD83D\uDD27 TECHNOLOGY:\n" +
+                        "  \u2022 Java Swing UI Framework\n" +
+                        "  \u2022 SQLite Database Engine\n" +
+                        "  \u2022 Modern Dark Theme Interface\n" +
+                        "  \u2022 AI Integration Support\n" +
+                        "\n" +
+                        "\uD83D\uDCCA Made with care to help you achieve your financial goals!\n" +
+                        "\n" +
+                        "\u00A9 2025 FinSight. All rights reserved.\n";
+        
+        aboutText.setText(content);
+        aboutText.setCaretPosition(0);
+        
+        JScrollPane scrollPane = new JScrollPane(aboutText);
+        scrollPane.setBorder(null);
+        scrollPane.getVerticalScrollBar().setBackground(PANEL_COLOR);
+        
+        panel.add(scrollPane, BorderLayout.CENTER);
         
         return panel;
     }
@@ -370,45 +361,38 @@ public class SettingsPanel extends JPanel {
             currencyCode = "INR";
         }
         
-        // Get API key and LLM provider
+        // Get API key
         String apiKey = apiKeyField.getText().trim();
-        String llmProvider = (String) llmProviderComboBox.getSelectedItem();
         
         // Save to database and SettingsManager
         settingsDAO.setSetting("user_name", name);
         SettingsManager.setCurrency(currencyCode);
         
-        // Save AI settings to database
+        // Save AI settings if provided
         if (!apiKey.isEmpty()) {
             settingsDAO.setSetting("gemini_api_key", apiKey);
             
-            // Also save to config.properties for GeminiService
-            if ("Gemini".equals(llmProvider)) {
-                if (GeminiService.saveApiKey(apiKey)) {
-                    System.out.println("Gemini API key saved to config.properties");
-                } else {
-                    JOptionPane.showMessageDialog(this, 
-                        "Warning: Failed to save API key to config file.\nPlease check file permissions.",
-                        "Config Save Warning", JOptionPane.WARNING_MESSAGE);
-                }
+            // Save to config.properties
+            if (GeminiService.saveApiKey(apiKey)) {
+                System.out.println("API key saved to config.properties");
+            } else {
+                JOptionPane.showMessageDialog(this, 
+                    "Warning: Failed to save API key to config file.\nPlease check file permissions.",
+                    "Config Save Warning", JOptionPane.WARNING_MESSAGE);
             }
         }
-        settingsDAO.setSetting("llm_provider", llmProvider);
         
-        JOptionPane.showMessageDialog(this, 
-            "Settings saved successfully!\nCurrency: " + currencyDisplay + "\nAI Provider: " + llmProvider,
+        String message = "Settings saved successfully!\nCurrency: " + currencyDisplay;
+        if (!apiKey.isEmpty()) {
+            message += "\n\u2705 AI API key configured";
+        }
+        
+        JOptionPane.showMessageDialog(this, message,
             "Settings Saved", JOptionPane.INFORMATION_MESSAGE);
         
         // Refresh all panels to show new currency and reload AI config
         if (mainFrame != null) {
             mainFrame.refreshAllPanels();
-            
-            // Notify user to refresh AI panel if API key was set
-            if (!apiKey.isEmpty() && "Gemini".equals(llmProvider)) {
-                JOptionPane.showMessageDialog(this, 
-                    "✅ Gemini API key configured!\n\nGo to the AI Advisor panel and click 'Refresh Context' to start using AI features.",
-                    "AI Ready", JOptionPane.INFORMATION_MESSAGE);
-            }
         }
     }
     
@@ -416,7 +400,6 @@ public class SettingsPanel extends JPanel {
         String savedName = settingsDAO.getSetting("user_name", "User");
         String currencyCode = SettingsManager.getCurrencyCode();
         String apiKey = settingsDAO.getSetting("gemini_api_key", "");
-        String llmProvider = settingsDAO.getSetting("llm_provider", "Gemini");
         
         nameField.setText(savedName);
         apiKeyField.setText(apiKey);
@@ -438,9 +421,6 @@ public class SettingsPanel extends JPanel {
             default:
                 currencyComboBox.setSelectedItem("INR (₹)");
         }
-        
-        // Select the correct LLM provider
-        llmProviderComboBox.setSelectedItem(llmProvider);
     }
     
     private void clearAllTransactions() {
